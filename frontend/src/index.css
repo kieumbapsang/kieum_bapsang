@@ -1,0 +1,106 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Primary Colors */
+    --color-primary: theme('colors.primary.DEFAULT');
+    --color-primary-50: theme('colors.primary.50');
+    --color-primary-100: theme('colors.primary.100');
+    --color-primary-200: theme('colors.primary.200');
+    --color-primary-300: theme('colors.primary.300');
+    --color-primary-400: theme('colors.primary.400');
+    --color-primary-500: theme('colors.primary.500');
+    --color-primary-600: theme('colors.primary.600');
+    --color-primary-700: theme('colors.primary.700');
+    --color-primary-800: theme('colors.primary.800');
+    --color-primary-900: theme('colors.primary.900');
+
+    /* Chart Colors */
+    --color-chart: theme('colors.chart.DEFAULT');
+    --color-chart-100: theme('colors.chart.100');
+    --color-chart-200: theme('colors.chart.200');
+    --color-chart-300: theme('colors.chart.300');
+    --color-chart-400: theme('colors.chart.400');
+    --color-chart-500: theme('colors.chart.500');
+
+    /* Destructive Colors */
+    --color-destructive: theme('colors.destructive.DEFAULT');
+    --color-destructive-50: theme('colors.destructive.50');
+    --color-destructive-100: theme('colors.destructive.100');
+    --color-destructive-200: theme('colors.destructive.200');
+    --color-destructive-300: theme('colors.destructive.300');
+    --color-destructive-400: theme('colors.destructive.400');
+    --color-destructive-500: theme('colors.destructive.500');
+    --color-destructive-600: theme('colors.destructive.600');
+    --color-destructive-700: theme('colors.destructive.700');
+    --color-destructive-800: theme('colors.destructive.800');
+    --color-destructive-900: theme('colors.destructive.900');
+
+    /* Neutral Colors - Light Mode */
+    --color-neutral: theme('colors.neutral.light.DEFAULT');
+    --color-neutral-50: theme('colors.neutral.light.50');
+    --color-neutral-100: theme('colors.neutral.light.100');
+    --color-neutral-200: theme('colors.neutral.light.200');
+    --color-neutral-300: theme('colors.neutral.light.300');
+    --color-neutral-400: theme('colors.neutral.light.400');
+    --color-neutral-500: theme('colors.neutral.light.500');
+    --color-neutral-600: theme('colors.neutral.light.600');
+    --color-neutral-700: theme('colors.neutral.light.700');
+    --color-neutral-800: theme('colors.neutral.light.800');
+    --color-neutral-900: theme('colors.neutral.light.900');
+
+    /* Border Radius */
+    --radius-default: theme('borderRadius.DEFAULT');
+    --radius-md: theme('borderRadius.md');
+    --radius-lg: theme('borderRadius.lg');
+    --radius-xl: theme('borderRadius.xl');
+  }
+
+  /* Dark Mode */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-neutral: theme('colors.neutral.dark.DEFAULT');
+      --color-neutral-50: theme('colors.neutral.dark.50');
+      --color-neutral-100: theme('colors.neutral.dark.100');
+      --color-neutral-200: theme('colors.neutral.dark.200');
+      --color-neutral-300: theme('colors.neutral.dark.300');
+      --color-neutral-400: theme('colors.neutral.dark.400');
+      --color-neutral-500: theme('colors.neutral.dark.500');
+      --color-neutral-600: theme('colors.neutral.dark.600');
+      --color-neutral-700: theme('colors.neutral.dark.700');
+      --color-neutral-800: theme('colors.neutral.dark.800');
+      --color-neutral-900: theme('colors.neutral.dark.900');
+    }
+  }
+
+  /* Dark Mode Class (for manual control) */
+  :root[data-theme="dark"] {
+    --color-neutral: theme('colors.neutral.dark.DEFAULT');
+    --color-neutral-50: theme('colors.neutral.dark.50');
+    --color-neutral-100: theme('colors.neutral.dark.100');
+    --color-neutral-200: theme('colors.neutral.dark.200');
+    --color-neutral-300: theme('colors.neutral.dark.300');
+    --color-neutral-400: theme('colors.neutral.dark.400');
+    --color-neutral-500: theme('colors.neutral.dark.500');
+    --color-neutral-600: theme('colors.neutral.dark.600');
+    --color-neutral-700: theme('colors.neutral.dark.700');
+    --color-neutral-800: theme('colors.neutral.dark.800');
+    --color-neutral-900: theme('colors.neutral.dark.900');
+  }
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}

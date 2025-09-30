@@ -1,0 +1,112 @@
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    "./src/**/*.{js,jsx,ts,tsx}",
+  ],
+  theme: {
+    extend: {
+      colors: {
+        primary: {
+          DEFAULT: "#66ec71",
+          50: "hsl(134, 80%, 95%)",
+          100: "hsl(134, 80%, 90%)",
+          200: "hsl(134, 80%, 85%)",
+          300: "hsl(134, 80%, 80%)",
+          400: "hsl(134, 80%, 75%)",
+          500: "hsl(134, 80%, 66%)",
+          600: "hsl(134, 80%, 56%)",
+          700: "hsl(134, 80%, 46%)",
+          800: "hsl(134, 80%, 36%)",
+          900: "hsl(134, 80%, 26%)",
+        },
+        chart: {
+          DEFAULT: "hsl(134, 80%, 66%)",
+          100: "hsl(134, 75%, 70%)",
+          200: "hsl(134, 70%, 65%)",
+          300: "hsl(134, 65%, 60%)",
+          400: "hsl(134, 60%, 55%)",
+          500: "hsl(134, 55%, 50%)",
+        },
+        destructive: {
+          DEFAULT: "#ff4747",
+          50: "#fff2f2",
+          100: "#ffe6e6",
+          200: "#ffcccc",
+          300: "#ff9999",
+          400: "#ff6666",
+          500: "#ff4747",
+          600: "#cc3939",
+          700: "#992b2b",
+          800: "#661d1d",
+          900: "#330e0e",
+        },
+        neutral: {
+          light: {
+            DEFAULT: "#ffffff",
+            50: "#ffffff",
+            100: "#f8f9fa",
+            200: "#e9ecef",
+            300: "#dee2e6",
+            400: "#ced4da",
+            500: "#adb5bd",
+            600: "#6c757d",
+            700: "#495057",
+            800: "#343a40",
+            900: "#212529",
+          },
+          dark: {
+            DEFAULT: "hsl(134, 15%, 15%)",
+            50: "hsl(134, 15%, 95%)",
+            100: "hsl(134, 15%, 85%)",
+            200: "hsl(134, 15%, 75%)",
+            300: "hsl(134, 15%, 65%)",
+            400: "hsl(134, 15%, 55%)",
+            500: "hsl(134, 15%, 45%)",
+            600: "hsl(134, 15%, 35%)",
+            700: "hsl(134, 15%, 25%)",
+            800: "hsl(134, 15%, 15%)",
+            900: "hsl(134, 15%, 5%)",
+          },
+        },
+      },
+      borderRadius: {
+        DEFAULT: '0.5rem',
+        'sm': '0.375rem',
+        'md': '0.75rem',
+        'lg': '1rem',
+        'xl': '1.5rem',
+        'full': '9999px',
+      },
+      spacing: {
+        'safe-top': 'env(safe-area-inset-top)',
+        'safe-bottom': 'env(safe-area-inset-bottom)',
+        'safe-left': 'env(safe-area-inset-left)',
+        'safe-right': 'env(safe-area-inset-right)',
+      },
+      height: {
+        screen: ['100vh /* fallback */', '100dvh'],
+      },
+      minHeight: {
+        screen: ['100vh /* fallback */', '100dvh'],
+      },
+      maxHeight: {
+        screen: ['100vh /* fallback */', '100dvh'],
+      },
+      fontSize: {
+        'xs': ['0.75rem', { lineHeight: '1rem' }],
+        'sm': ['0.875rem', { lineHeight: '1.25rem' }],
+        'base': ['1rem', { lineHeight: '1.5rem' }],
+        'lg': ['1.125rem', { lineHeight: '1.75rem' }],
+        'xl': ['1.25rem', { lineHeight: '1.75rem' }],
+        '2xl': ['1.5rem', { lineHeight: '2rem' }],
+        '3xl': ['1.875rem', { lineHeight: '2.25rem' }],
+      },
+      boxShadow: {
+        'soft': '0 2px 8px rgba(0, 0, 0, 0.05)',
+        'pressed': 'inset 0 1px 2px rgba(0, 0, 0, 0.1)',
+      },
+    },
+  },
+  plugins: [],
+}
+
