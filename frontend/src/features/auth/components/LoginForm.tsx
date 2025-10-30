@@ -46,38 +46,38 @@ export const LoginForm: React.FC = () => {
       });
 
       if (error) throw new Error(error);
-      console.log('📥 서버 응답 전체:', data);
-      console.log('📥 서버 응답 data 필드:', data?.data);
+      console.log('📥 서버 응답 data 필드:', data);
 
-      const userData = data?.data;
-      console.log('✅ 사용자 데이터:', userData);
-      console.log('✅ is_new_user 값:', userData?.is_new_user);
-      console.log('✅ user_id 값:', userData?.user_id);
+      console.log('✅ 사용자 데이터:', data);
+      console.log('✅ is_new_user 값:', data?.is_new_user);
+      console.log('✅ user_id 값:', data?.user_id);
 
       // user_id가 있으면 localStorage에 저장
-      if (userData?.user_id) {
-        localStorage.setItem('user_id', userData.user_id.toString());
-        console.log('💾 user_id 저장됨:', userData.user_id);
+      if (data?.user_id) {
+        localStorage.setItem('user_id', data.user_id.toString());
+        console.log('💾 user_id 저장됨:', data.user_id);
       }
 
       // 사용자 상태에 따른 라우팅
       console.log('🔍 라우팅 결정 중...');
-      console.log('🔍 userData?.is_new_user:', userData?.is_new_user);
-      console.log('🔍 typeof userData?.is_new_user:', typeof userData?.is_new_user);
-      console.log('🔍 userData?.is_new_user === true:', userData?.is_new_user === true);
+      console.log('🔍 userData?.is_new_user:', data?.is_new_user);
+      console.log('🔍 typeof userData?.is_new_user:', typeof data?.is_new_user);
+      console.log('🔍 userData?.is_new_user === true:', data?.is_new_user);
       
-      if (userData?.is_new_user === true) {
-        console.log('🆕 신규 사용자 - 추가 정보 입력 페이지로 이동');
-        // 신규 사용자의 경우 구글 정보를 localStorage에 저장
-        localStorage.setItem('google_user_info', JSON.stringify({
-          google_id: userData.google_id,
-          email: userData.email,
-          name: userData.name
+      if (data) {
+        localStorage.setItem('user_info', JSON.stringify({
+          google_id: data.google_id,
+          email: data.email,
+          name: data.username
         }));
-        navigate('/additional-info');
-      } else {
-        console.log('👤 기존 사용자 - 홈 페이지로 이동');
-        navigate('/home');
+
+        if (data?.is_new_user) {
+          console.log('🆕 신규 사용자 - 추가 정보 입력 페이지로 이동');
+          navigate('/additional-info');
+        } else {
+          console.log('👤 기존 사용자 - 홈 페이지로 이동');
+          navigate('/home');
+        }
       }
 
     } catch (err) {
