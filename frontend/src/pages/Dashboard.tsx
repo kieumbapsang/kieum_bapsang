@@ -73,6 +73,10 @@ const getAgeGroup = (age: number): string => {
   return '65세 이상';
 };
 
+// 숫자 포맷터 (천 단위 구분)
+const formatInt = (n: number) => Math.round(n).toLocaleString();
+const formatGrams1 = (n: number) => Number(n).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
 // 실제 식사 데이터 페칭 함수
 const fetchDashboardData = async () => {
   try {
@@ -185,13 +189,13 @@ const generateAlerts = (summary: any, averageNutritionByAge?: any[] | null, user
       alerts.push({
         id: 'calorie-low',
         type: 'warning',
-        message: `칼로리 섭취가 연령대 평균의 80% 미만입니다. (${Math.round(total_calories)}/${Math.round(energyAvg)}kcal)`
+        message: `칼로리 섭취가 연령대 평균의 80% 미만입니다. (${formatInt(total_calories)}/${formatInt(energyAvg)}kcal)`
       });
     } else if (total_calories > energyAvg * 1.2) {
       alerts.push({
         id: 'calorie-high',
         type: 'info',
-        message: `칼로리 섭취가 연령대 평균을 초과했습니다. (${Math.round(total_calories)}/${Math.round(energyAvg)}kcal)`
+        message: `칼로리 섭취가 연령대 평균을 초과했습니다. (${formatInt(total_calories)}/${formatInt(energyAvg)}kcal)`
       });
     }
   }
@@ -202,7 +206,7 @@ const generateAlerts = (summary: any, averageNutritionByAge?: any[] | null, user
       alerts.push({
         id: 'protein-low',
         type: 'warning',
-        message: `단백질 섭취가 부족합니다. (${total_protein.toFixed(1)}/${proteinAvg.toFixed(1)}g)`
+        message: `단백질 섭취가 부족합니다. (${formatGrams1(total_protein)}/${formatGrams1(proteinAvg)}g)`
       });
     }
   }

@@ -39,6 +39,20 @@ const getBMIColor = (bmi: number): string => {
   return '#EF4444'; // 비만 - 빨간색
 };
 
+// 1. 대시보드에서 사용한 연령대 함수와 포맷 유틸 추가
+const getAgeGroup = (age: number): string => {
+  if (age <= 2) return '1-2세';
+  if (age <= 5) return '3-5세';
+  if (age <= 11) return '6-11세';
+  if (age <= 18) return '12-18세';
+  if (age <= 29) return '19-29세';
+  if (age <= 49) return '30-49세';
+  if (age <= 64) return '50-64세';
+  return '65세 이상';
+};
+const formatInt = (n: number) => Math.round(n).toLocaleString();
+const formatGrams1 = (n: number) => Number(n).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
 export const NutritionAnalysisPage: React.FC = () => {
   // BMI 데이터 상태
   const [userStats, setUserStats] = useState({
@@ -52,6 +66,7 @@ export const NutritionAnalysisPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(getKoreanDate()); // 한국 시간대 현재 날짜로 설정
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [averageByAgeGroup, setAverageByAgeGroup] = useState<any[] | null>(null); // 연령대 평균
 
   const bmi = calculateBMI(userStats.weight, userStats.height);
   const bmiStatus = getBMIStatus(bmi);
@@ -103,6 +118,39 @@ export const NutritionAnalysisPage: React.FC = () => {
 
     fetchUserProfile();
   }, []);
+
+  // 연령대 평균 영양 데이터 가져오기(useEffect)
+  useEffect(() => {
+    const fetchAverageByAge = async () => {
+      if (!userProfile || typeof userProfile.age !== 'number') return;
+      const ageGroup = getAgeGroup(userProfile.age);
+      const { data } = await api.nutrition.getAverageNutrition(encodeURIComponent(ageGroup));
+      setAverageByAgeGroup(data?.nutrition_data || null);
+    };
+    fetchAverageByAge();
+  }, [userProfile]);
+
+  // 기존 compareUserNutrition 데이터도 averageByAgeGroup 연동 위해 재가공
+  useEffect(() => {
+    if (!averageByAgeGroup || !userProfile) return;
+    // 기존 분석 데이터를 averageByAgeGroup과 매칭해서 평균, 상태 재계산
+    setNutritionComparison((old) => {
+      return old.map((item) => {
+        const avg = averageByAgeGroup.find(a => a.nutrient_name === item.nutrient);
+        const average = avg?.average_value ?? item.average;
+        let status = '적정';
+        if (typeof average === 'number') {
+          if (item.user < average * 0.8) status = '부족';
+          else if (item.user > average * 1.2) status = '과다';
+        }
+        return {
+          ...item,
+          average,
+          status
+        };
+      });
+    });
+  }, [averageByAgeGroup]);
 
   // 영양소 비교 데이터 가져오기
   useEffect(() => {
@@ -369,7 +417,7 @@ export const NutritionAnalysisPage: React.FC = () => {
               {nutritionComparison.length > 0 ? (
                 <div className="grid grid-cols-2 gap-3 mb-4">
                   <div className="text-center p-3 bg-blue-50 rounded-lg">
-                    <div className="text-xl font-bold text-blue-600">30세</div>
+                    <div className="text-xl font-bold text-blue-600">{userProfile ? getAgeGroup(userProfile.age) : '-'}</div>
                     <div className="text-sm text-gray-600">연령대</div>
                   </div>
                   <div className="text-center p-3 bg-green-50 rounded-lg">
@@ -465,7 +513,7 @@ export const NutritionAnalysisPage: React.FC = () => {
                   <li>• <strong>적정:</strong> 평균 대비 ±20% 범위 내</li>
                   <li>• <strong>부족:</strong> 평균 대비 -20% 미만</li>
                   <li>• <strong>과다:</strong> 평균 대비 +20% 초과</li>
-                  <li>• 30-49세 연령대 평균 기준</li>
+                  <li>• {userProfile ? getAgeGroup(userProfile.age) : '30-49세'} 연령대 평균 기준</li>
                 </ul>
               </div>
             </motion.div>
