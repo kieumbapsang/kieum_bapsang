@@ -61,6 +61,18 @@ const pieChartVariants: Variants = {
   }
 };
 
+// 연령 → 연령대 문자열 매핑
+const getAgeGroup = (age: number): string => {
+  if (age <= 2) return '1-2세';
+  if (age <= 5) return '3-5세';
+  if (age <= 11) return '6-11세';
+  if (age <= 18) return '12-18세';
+  if (age <= 29) return '19-29세';
+  if (age <= 49) return '30-49세';
+  if (age <= 64) return '50-64세';
+  return '65세 이상';
+};
+
 // 실제 식사 데이터 페칭 함수
 const fetchDashboardData = async () => {
   try {
@@ -99,7 +111,20 @@ const fetchDashboardData = async () => {
 
     // 사용자 프로필 정보 가져오기
     const { data: userProfile } = await api.user.getProfile(parseInt(userId));
-    
+
+    // 연령대 평균 영양소 조회 (Excel 기반 DB 데이터)
+    let averageNutritionByAge: any | null = null;
+    try {
+      const age = userProfile?.age ?? null;
+      if (typeof age === 'number' && !Number.isNaN(age)) {
+        const ageGroup = getAgeGroup(age);
+        const { data: avgData } = await (api.nutrition.getAverageNutrition as any)(encodeURIComponent(ageGroup));
+        averageNutritionByAge = avgData?.nutrition_data || null;
+      }
+    } catch (e) {
+      console.warn('연령대 평균 영양소 조회 실패(무시하고 진행):', e);
+    }
+
     return {
       userName: userProfile?.username || null,
       userProfile: userProfile,
@@ -110,7 +135,7 @@ const fetchDashboardData = async () => {
         total_fat: 0,
         meals_by_period: {}
       },
-      alerts: generateAlerts(mealSummary),
+      alerts: generateAlerts(mealSummary, averageNutritionByAge, userProfile?.age ?? null),
     };
   } catch (error) {
     console.error('대시보드 데이터 가져오기 실패:', error);
@@ -131,40 +156,105 @@ const fetchDashboardData = async () => {
 };
 
 // 영양소 알림 생성 함수
-const generateAlerts = (summary: any) => {
+const generateAlerts = (summary: any, averageNutritionByAge?: any[] | null, userAge?: number | null) => {
   const alerts: Array<{id: string, type: 'warning' | 'info', message: string}> = [];
   
   if (!summary) return alerts;
   
-  const { total_calories, total_protein, total_carbs } = summary;
-  
-  // 칼로리 목표 (예: 2000kcal)
-  const calorieGoal = 2000;
-  const proteinGoal = 80; // g
-  const carbsGoal = 250; // g
-  
-  if (total_calories < calorieGoal * 0.8) {
-    alerts.push({
-      id: 'calorie-low',
-      type: 'warning',
-      message: `오늘 칼로리 섭취량이 목표의 80% 미만입니다. (${total_calories}/${calorieGoal}kcal)`
-    });
+  const { total_calories, total_protein, total_carbs, total_fat } = summary;
+
+  // 연령대 평균값 맵 구성 (엑셀 기반 DB 데이터)
+  const averageMap: Record<string, { value: number, unit: string }> = {};
+  if (Array.isArray(averageNutritionByAge)) {
+    for (const item of averageNutritionByAge) {
+      if (item?.nutrient_name && typeof item?.average_value === 'number') {
+        averageMap[item.nutrient_name] = { value: item.average_value, unit: item.unit };
+      }
+    }
+  }
+
+  // 비교 대상 영양소(요약 데이터에서 제공되는 4가지 위주)
+  const energyAvg = averageMap['에너지 섭취량']?.value;
+  const proteinAvg = averageMap['단백질']?.value;
+  const carbsAvg = averageMap['탄수화물']?.value;
+  const fatAvg = averageMap['지방']?.value;
+
+  // 칼로리: 연령대 평균 대비 80% 미만 또는 120% 초과 시 알림
+  if (typeof energyAvg === 'number') {
+    if (total_calories < energyAvg * 0.8) {
+      alerts.push({
+        id: 'calorie-low',
+        type: 'warning',
+        message: `칼로리 섭취가 연령대 평균의 80% 미만입니다. (${Math.round(total_calories)}/${Math.round(energyAvg)}kcal)`
+      });
+    } else if (total_calories > energyAvg * 1.2) {
+      alerts.push({
+        id: 'calorie-high',
+        type: 'info',
+        message: `칼로리 섭취가 연령대 평균을 초과했습니다. (${Math.round(total_calories)}/${Math.round(energyAvg)}kcal)`
+      });
+    }
+  }
+
+  // 단백질: 평균의 70% 미만 부족 알림
+  if (typeof proteinAvg === 'number' && typeof total_protein === 'number') {
+    if (total_protein < proteinAvg * 0.7) {
+      alerts.push({
+        id: 'protein-low',
+        type: 'warning',
+        message: `단백질 섭취가 부족합니다. (${total_protein.toFixed(1)}/${proteinAvg.toFixed(1)}g)`
+      });
+    }
+  }
+
+  // 탄수화물: 평균의 120% 초과 알림
+  if (typeof carbsAvg === 'number' && typeof total_carbs === 'number') {
+    if (total_carbs > carbsAvg * 1.2) {
+      alerts.push({
+        id: 'carbs-high',
+        type: 'info',
+        message: `탄수화물 섭취가 연령대 평균을 초과했습니다. (${total_carbs.toFixed(1)}/${carbsAvg.toFixed(1)}g)`
+      });
+    }
+  }
+
+  // 지방: 평균의 120% 초과 알림
+  if (typeof fatAvg === 'number' && typeof total_fat === 'number') {
+    if (total_fat > fatAvg * 1.2) {
+      alerts.push({
+        id: 'fat-high',
+        type: 'info',
+        message: `지방 섭취가 연령대 평균을 초과했습니다. (${total_fat.toFixed(1)}/${fatAvg.toFixed(1)}g)`
+      });
+    }
   }
   
-  if (total_protein < proteinGoal * 0.7) {
-    alerts.push({
-      id: 'protein-low',
-      type: 'warning',
-      message: `단백질 섭취량이 부족합니다. (${total_protein.toFixed(1)}/${proteinGoal}g)`
-    });
-  }
-  
-  if (total_carbs > carbsGoal * 1.2) {
-    alerts.push({
-      id: 'carbs-high',
-      type: 'info',
-      message: `탄수화물 섭취량이 목표를 초과했습니다. (${total_carbs.toFixed(1)}/${carbsGoal}g)`
-    });
+  // 참고: 기존 하드코드 목표값 로직은 평균값이 없을 때만 백업용으로 사용하도록 유지
+  if (!energyAvg || !proteinAvg || !carbsAvg || !fatAvg) {
+    const calorieGoal = 2000;
+    const proteinGoal = 80; // g
+    const carbsGoal = 250; // g
+    if (total_calories < calorieGoal * 0.8) {
+      alerts.push({
+        id: 'calorie-low-fallback',
+        type: 'warning',
+        message: `오늘 칼로리 섭취량이 목표의 80% 미만입니다. (${total_calories}/${calorieGoal}kcal)`
+      });
+    }
+    if (typeof total_protein === 'number' && total_protein < proteinGoal * 0.7) {
+      alerts.push({
+        id: 'protein-low-fallback',
+        type: 'warning',
+        message: `단백질 섭취량이 부족합니다. (${total_protein.toFixed(1)}/${proteinGoal}g)`
+      });
+    }
+    if (typeof total_carbs === 'number' && total_carbs > carbsGoal * 1.2) {
+      alerts.push({
+        id: 'carbs-high-fallback',
+        type: 'info',
+        message: `탄수화물 섭취량이 목표를 초과했습니다. (${total_carbs.toFixed(1)}/${carbsGoal}g)`
+      });
+    }
   }
   
   if (alerts.length === 0) {
