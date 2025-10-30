@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Meal } from '../components/MealCard';
 import { api } from '../../../api/client';
+import { toKoreanDateString } from '../../../lib/utils';
 
 // 백엔드 API 응답을 프론트엔드 Meal 타입으로 변환
 const convertApiMealToMeal = (apiMeal: any): Meal => {
@@ -40,7 +41,7 @@ export const useMeals = () => {
 
   // 특정 날짜의 식사 목록을 API에서 가져오기
   const fetchMealsByDate = useCallback(async (date: Date) => {
-    const dateString = date.toISOString().split('T')[0];
+    const dateString = toKoreanDateString(date);
     const userId = 1; // 임시로 1번 사용자 사용
     console.log(`🔍 식사 목록 조회 시작: ${dateString}, user_id: ${userId}`);
     setLoading(true);
@@ -83,7 +84,7 @@ export const useMeals = () => {
   }, []); // 빈 의존성 배열로 고정
 
   const getMealsByDate = (date: Date) => {
-    const dateString = date.toISOString().split('T')[0];
+    const dateString = toKoreanDateString(date);
     return (meals[dateString] || []).sort((a, b) => {
       if (a.createdAt && b.createdAt) {
         return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
@@ -102,7 +103,7 @@ export const useMeals = () => {
       }
       
       // 로컬 상태에서도 제거
-      const dateString = date.toISOString().split('T')[0];
+      const dateString = toKoreanDateString(date);
       setMeals(prev => ({
         ...prev,
         [dateString]: (prev[dateString] || []).filter(meal => meal.id !== mealId)
@@ -139,7 +140,7 @@ export const useMeals = () => {
       }
       
       // 로컬 상태도 업데이트
-      const dateString = date.toISOString().split('T')[0];
+      const dateString = toKoreanDateString(date);
       setMeals(prev => ({
         ...prev,
         [dateString]: (prev[dateString] || []).map(meal => 
@@ -153,7 +154,7 @@ export const useMeals = () => {
 
   const addMeal = (date: Date, meal: Meal) => {
     // addMeal은 AddMealModal에서 직접 API를 호출하므로 여기서는 로컬 상태만 업데이트
-    const dateString = date.toISOString().split('T')[0];
+    const dateString = toKoreanDateString(date);
     setMeals(prev => ({
       ...prev,
       [dateString]: [...(prev[dateString] || []), meal]

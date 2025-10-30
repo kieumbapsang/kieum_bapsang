@@ -4,6 +4,27 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
+import { api } from '../api/client';
+
+// BMI 계산 함수
+const calculateBMI = (weight: number, height: number): number => {
+  const heightInMeters = height / 100;
+  return Number((weight / (heightInMeters * heightInMeters)).toFixed(1));
+};
+
+const getBMIStatus = (bmi: number): string => {
+  if (bmi < 18.5) return '저체중';
+  if (bmi < 23) return '정상';
+  if (bmi < 25) return '과체중';
+  return '비만';
+};
+
+const getBMIColor = (bmi: number): string => {
+  if (bmi < 18.5) return '#3B82F6'; // 저체중 - 파란색
+  if (bmi < 23) return '#10B981'; // 정상 - 초록색
+  if (bmi < 25) return '#F59E0B'; // 과체중 - 주황색
+  return '#EF4444'; // 비만 - 빨간색
+};
 
 const containerVariants: Variants = {
   hidden: { opacity: 0 },
@@ -40,25 +61,121 @@ const pieChartVariants: Variants = {
   }
 };
 
-// 임시 데이터 페칭 함수
+// 실제 식사 데이터 페칭 함수
 const fetchDashboardData = async () => {
-  // 실제 구현에서는 API 호출
-  return {
-    userName: null,
-    weekly: [
-      { day: '월', calories: 1800, protein: 70, carbs: 220, fat: 60 },
-      { day: '화', calories: 2000, protein: 75, carbs: 240, fat: 65 },
-      { day: '수', calories: 1900, protein: 72, carbs: 230, fat: 62 },
-      { day: '목', calories: 2100, protein: 80, carbs: 250, fat: 68 },
-      { day: '금', calories: 2200, protein: 85, carbs: 260, fat: 70 },
-      { day: '토', calories: 2300, protein: 90, carbs: 270, fat: 75 },
-      { day: '일', calories: 1950, protein: 74, carbs: 235, fat: 64 },
-    ],
-    alerts: [
-      { id: '1', type: 'warning', message: '오늘 단백질 섭취량이 목표보다 낮습니다.' },
-      { id: '2', type: 'info', message: '물을 더 섭취하는 것이 좋습니다.' },
-    ],
-  };
+  try {
+    const userId = localStorage.getItem('user_id');
+    if (!userId) {
+      throw new Error('사용자 ID가 없습니다.');
+    }
+
+    // 오늘 날짜
+    const today = new Date().toISOString().split('T')[0];
+    
+    // 오늘의 식사 요약 데이터 가져오기
+    const { data: mealSummary, error: summaryError } = await (api.meals.getMealSummary as any)(today, parseInt(userId));
+    
+    console.log('Dashboard - 오늘 날짜:', today);
+    console.log('Dashboard - 사용자 ID:', userId);
+    console.log('Dashboard - 식사 요약 데이터:', mealSummary);
+    console.log('Dashboard - 에러:', summaryError);
+    
+    if (summaryError) {
+      console.error('식사 요약 데이터 가져오기 실패:', summaryError);
+      return {
+        userName: null,
+        todaySummary: {
+          total_calories: 0,
+          total_protein: 0,
+          total_carbs: 0,
+          total_fat: 0,
+          meals_by_period: {}
+        },
+        alerts: [
+          { id: '1', type: 'warning', message: '식사 데이터를 불러올 수 없습니다.' },
+        ],
+      };
+    }
+
+    // 사용자 프로필 정보 가져오기
+    const { data: userProfile } = await api.user.getProfile(parseInt(userId));
+    
+    return {
+      userName: userProfile?.username || null,
+      userProfile: userProfile,
+      todaySummary: mealSummary || {
+        total_calories: 0,
+        total_protein: 0,
+        total_carbs: 0,
+        total_fat: 0,
+        meals_by_period: {}
+      },
+      alerts: generateAlerts(mealSummary),
+    };
+  } catch (error) {
+    console.error('대시보드 데이터 가져오기 실패:', error);
+    return {
+      userName: null,
+      todaySummary: {
+        total_calories: 0,
+        total_protein: 0,
+        total_carbs: 0,
+        total_fat: 0,
+        meals_by_period: {}
+      },
+      alerts: [
+        { id: '1', type: 'warning', message: '데이터를 불러올 수 없습니다.' },
+      ],
+    };
+  }
+};
+
+// 영양소 알림 생성 함수
+const generateAlerts = (summary: any) => {
+  const alerts: Array<{id: string, type: 'warning' | 'info', message: string}> = [];
+  
+  if (!summary) return alerts;
+  
+  const { total_calories, total_protein, total_carbs } = summary;
+  
+  // 칼로리 목표 (예: 2000kcal)
+  const calorieGoal = 2000;
+  const proteinGoal = 80; // g
+  const carbsGoal = 250; // g
+  
+  if (total_calories < calorieGoal * 0.8) {
+    alerts.push({
+      id: 'calorie-low',
+      type: 'warning',
+      message: `오늘 칼로리 섭취량이 목표의 80% 미만입니다. (${total_calories}/${calorieGoal}kcal)`
+    });
+  }
+  
+  if (total_protein < proteinGoal * 0.7) {
+    alerts.push({
+      id: 'protein-low',
+      type: 'warning',
+      message: `단백질 섭취량이 부족합니다. (${total_protein.toFixed(1)}/${proteinGoal}g)`
+    });
+  }
+  
+  if (total_carbs > carbsGoal * 1.2) {
+    alerts.push({
+      id: 'carbs-high',
+      type: 'info',
+      message: `탄수화물 섭취량이 목표를 초과했습니다. (${total_carbs.toFixed(1)}/${carbsGoal}g)`
+    });
+  }
+  
+  if (alerts.length === 0) {
+    alerts.push({
+      id: 'good',
+      type: 'info',
+      message: '오늘의 영양소 섭취가 균형잡혀 있습니다! 👍'
+    });
+  }
+  
+  return alerts;
 };
 
 export const DashboardPage: React.FC = () => {
@@ -72,6 +189,44 @@ export const DashboardPage: React.FC = () => {
     return <div className="p-8 text-center">로딩 중...</div>;
   }
 
+  // 실제 데이터에서 영양소 정보 추출
+  const { todaySummary } = dashboardData || {};
+  const totalCalories = Math.round(todaySummary?.total_calories || 0);
+  const totalProtein = todaySummary?.total_protein || 0;
+  const totalCarbs = todaySummary?.total_carbs || 0;
+  const totalFat = todaySummary?.total_fat || 0;
+  
+  console.log('Dashboard 렌더링 - todaySummary:', todaySummary);
+  console.log('Dashboard 렌더링 - totalCalories:', totalCalories);
+
+  // 파이 차트 데이터 계산
+  const pieChartData = [
+    { 
+      name: '탄수화물', 
+      value: totalCarbs * 4, // 1g 탄수화물 = 4kcal
+      color: '#3B82F6',
+      grams: totalCarbs
+    },
+    { 
+      name: '단백질', 
+      value: totalProtein * 4, // 1g 단백질 = 4kcal
+      color: '#10B981',
+      grams: totalProtein
+    },
+    { 
+      name: '지방', 
+      value: totalFat * 9, // 1g 지방 = 9kcal
+      color: '#F59E0B',
+      grams: totalFat
+    }
+  ];
+
+  // 백분율 계산
+  const totalMacroCalories = pieChartData.reduce((sum, item) => sum + item.value, 0);
+  const proteinPercentage = totalMacroCalories > 0 ? Math.round((pieChartData[1].value / totalMacroCalories) * 100) : 0;
+  const carbsPercentage = totalMacroCalories > 0 ? Math.round((pieChartData[0].value / totalMacroCalories) * 100) : 0;
+  const fatPercentage = totalMacroCalories > 0 ? Math.round((pieChartData[2].value / totalMacroCalories) * 100) : 0;
+
   return (
     <motion.div 
       className="container mx-auto px-4 py-6 space-y-6 max-w-lg"
@@ -80,7 +235,7 @@ export const DashboardPage: React.FC = () => {
       animate="visible"
     >
       {/* 사용자 환영 메시지 */}
-      <motion.div 
+      {/* <motion.div 
         className="flex items-center"
         variants={itemVariants}
       >
@@ -105,7 +260,7 @@ export const DashboardPage: React.FC = () => {
             </motion.h1>
           )}
         </div>
-      </motion.div>
+      </motion.div> */}
 
       {/* 오늘의 섭취 칼로리 */}
       <motion.div variants={itemVariants}>
@@ -123,73 +278,75 @@ export const DashboardPage: React.FC = () => {
             <CardContent>
               <div className="flex flex-col items-center py-2">
                 <div className="text-center mb-4">
-                  <div className="text-5xl font-bold text-primary-600 tracking-tight">1,850 <span className="text-base text-gray-500">kcal</span></div>
+                  <div className="text-5xl font-bold text-primary-600 tracking-tight">
+                    {totalCalories.toLocaleString()} <span className="text-base text-gray-500">kcal</span>
+                  </div>
+                  {totalCalories === 0 && (
+                    <div className="text-sm text-gray-500 mt-2">오늘 등록된 식사가 없습니다</div>
+                  )}
                 </div>
-                <motion.div 
-                  className="w-full max-w-[180px] h-[180px] relative mb-2"
-                  variants={pieChartVariants}
-                >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={[
-                          { name: '탄수화물', value: 60, color: '#3B82F6' },
-                          { name: '단백질', value: 20, color: '#10B981' },
-                          { name: '지방', value: 20, color: '#F59E0B' }
-                        ]}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={50}
-                        outerRadius={70}
-                        dataKey="value"
-                      >
-                        {[
-                          { name: '탄수화물', color: '#3B82F6' },
-                          { name: '단백질', color: '#10B981' },
-                          { name: '지방', color: '#F59E0B' }
-                        ].map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
-                </motion.div>
-                <div className="grid grid-cols-3 gap-4 w-full max-w-[300px] text-center mt-2">
-                  <div className="flex flex-col items-center">
-                    <div className="w-3 h-3 rounded-full bg-[#3B82F6] mb-1"></div>
-                    <div className="text-xs">
-                      <div className="font-medium">탄수화물</div>
-                      <div className="text-gray-500">60%</div>
-                      <div className="text-[10px] text-gray-400">(276g)</div>
+                {totalCalories > 0 && (
+                  <>
+                    <motion.div 
+                      className="w-full max-w-[180px] h-[180px] relative mb-2"
+                      variants={pieChartVariants}
+                    >
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={pieChartData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={50}
+                            outerRadius={70}
+                            dataKey="value"
+                          >
+                            {pieChartData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </motion.div>
+                    <div className="grid grid-cols-3 gap-4 w-full max-w-[300px] text-center mt-2">
+                      <div className="flex flex-col items-center">
+                        <div className="w-3 h-3 rounded-full bg-[#3B82F6] mb-1"></div>
+                        <div className="text-xs">
+                          <div className="font-medium">탄수화물</div>
+                          <div className="text-gray-500">{carbsPercentage}%</div>
+                          <div className="text-[10px] text-gray-400">({totalCarbs.toFixed(1)}g)</div>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-center">
+                        <div className="w-3 h-3 rounded-full bg-[#10B981] mb-1"></div>
+                        <div className="text-xs">
+                          <div className="font-medium">단백질</div>
+                          <div className="text-gray-500">{proteinPercentage}%</div>
+                          <div className="text-[10px] text-gray-400">({totalProtein.toFixed(1)}g)</div>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-center">
+                        <div className="w-3 h-3 rounded-full bg-[#F59E0B] mb-1"></div>
+                        <div className="text-xs">
+                          <div className="font-medium">지방</div>
+                          <div className="text-gray-500">{fatPercentage}%</div>
+                          <div className="text-[10px] text-gray-400">({totalFat.toFixed(1)}g)</div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex flex-col items-center">
-                    <div className="w-3 h-3 rounded-full bg-[#10B981] mb-1"></div>
-                    <div className="text-xs">
-                      <div className="font-medium">단백질</div>
-                      <div className="text-gray-500">20%</div>
-                      <div className="text-[10px] text-gray-400">(92g)</div>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-center">
-                    <div className="w-3 h-3 rounded-full bg-[#F59E0B] mb-1"></div>
-                    <div className="text-xs">
-                      <div className="font-medium">지방</div>
-                      <div className="text-gray-500">20%</div>
-                      <div className="text-[10px] text-gray-400">(41g)</div>
-                    </div>
-                  </div>
-                </div>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>
         </motion.div>
       </motion.div>
+
       
       {/* 근처 가맹점 */}
       <motion.div variants={itemVariants}>
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader className="p-6">
             <div className="flex justify-between items-center">
               <CardTitle className="text-lg">내 근처 가맹점</CardTitle>
               <span className="text-sm text-gray-500">상세보기</span>

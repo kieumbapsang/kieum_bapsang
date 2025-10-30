@@ -247,13 +247,19 @@ export const api = {
 
   // OCR 관련
   ocr: {
-    // 파일 업로드를 통한 OCR 처리
-    uploadImage: async (file) => {
+    // 파일 업로드를 통한 OCR 처리 (사용자 지정 ROI 포함)
+    uploadImage: async (file, useROI = true, roiBbox) => {
       try {
         const formData = new FormData();
         formData.append('file', file);
 
-        const response = await fetch('http://localhost:8000/ocr/upload', {
+        // ROI 처리 옵션과 ROI 좌표를 URL 파라미터로 전달
+        let url = `http://localhost:8000/ocr/upload?use_roi=${useROI}`;
+        if (useROI && roiBbox) {
+          url += `&roi_bbox=${roiBbox}`;
+        }
+
+        const response = await fetch(url, {
           method: 'POST',
           body: formData,
         });
@@ -270,5 +276,111 @@ export const api = {
       }
     },
 
+  },
+
+  // 사용자 프로필 관련
+  user: {
+    // 구글 인증
+    googleAuth: async (authData) => {
+      try {
+        const response = await fetch('http://localhost:8000/auth/google', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(authData),
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        return { data: result.data, error: null };
+      } catch (error) {
+        console.error('구글 인증 오류:', error);
+        return { data: null, error: error.message };
+      }
+    },
+
+    // 사용자 프로필 생성
+    createProfile: async (profileData) => {
+      try {
+        const response = await fetch('http://localhost:8000/user/profile', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(profileData),
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        return { data: result.data, error: null };
+      } catch (error) {
+        console.error('사용자 프로필 생성 오류:', error);
+        return { data: null, error: error.message };
+      }
+    },
+
+    // 사용자 프로필 조회
+    getProfile: async (userId) => {
+      try {
+        const response = await fetch(`http://localhost:8000/user/profile/${userId}`, {headers: {'Accept': 'application/json'}});
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const result = await response.json();
+        return { data: result.data, error: null };
+      } catch (error) {
+        console.error('사용자 프로필 조회 오류:', error);
+        return { data: null, error: error.message };
+      }
+    },
+
+    // 사용자 프로필 수정
+    updateProfile: async (userId, profileData) => {
+      try {
+        const response = await fetch(`http://localhost:8000/user/profile/${userId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(profileData),
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        return { data: result.data, error: null };
+      } catch (error) {
+        console.error('사용자 프로필 수정 오류:', error);
+        return { data: null, error: error.message };
+      }
+    },
+
+    // 사용자 프로필 삭제
+    deleteProfile: async (userId) => {
+      try {
+        const response = await fetch(`http://localhost:8000/user/profile/${userId}`, {
+          method: 'DELETE',
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        return { data: result, error: null };
+      } catch (error) {
+        console.error('사용자 프로필 삭제 오류:', error);
+        return { data: null, error: error.message };
+      }
+    },
   },
 };

@@ -74,3 +74,10 @@ class ApiResponse(BaseModel):
     success: bool
     message: str
     data: Optional[Any] = None
+    
+class GoogleAuthRequest(BaseModel):
+    """구글 인증 요청 모델"""
+    credential: str
+    email: str
+    name: str
+    google_id: str

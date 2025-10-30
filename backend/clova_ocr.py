@@ -7,6 +7,7 @@ import requests
 import base64
 import re
 import os
+from roi_processor import ROIProcessor
 
 class ClovaOCREngine:
     def __init__(self, api_url, secret_key):
@@ -26,15 +27,19 @@ class ClovaOCREngine:
             'Content-Type': 'application/json'
         }
         
+        # ROI 프로세서 초기화
+        self.roi_processor = ROIProcessor()
+        
         print(f"✅ 클로바 OCR 엔진 초기화 완료! (API URL: {api_url})")
         
-    # OCR 텍스트 추출
-    def extract_text(self, image_data):
+    # OCR 텍스트 추출 (ROI 처리 포함)
+    def extract_text(self, image_data, use_roi=True):
         """
-        이미지에서 텍스트 추출
+        이미지에서 텍스트 추출 (ROI 처리로 인식률 향상)
         
         Args:
             image_data: base64 인코딩된 이미지 데이터 또는 이미지 파일 경로
+            use_roi: ROI 처리 사용 여부 (기본값: True)
             
         Returns:
             dict: OCR 처리 결과
@@ -61,6 +66,19 @@ class ClovaOCREngine:
                     'full_text': '',
                     'raw_result': None
                 }
+            
+            # ROI 처리 적용
+            if use_roi:
+                print("ROI 처리를 적용하여 영양성분표 영역을 최적화합니다...")
+                roi_result = self.roi_processor.process_image_with_roi(image_data)
+                
+                if roi_result['success']:
+                    print(f"ROI 처리 완료: {roi_result['roi_bbox']}")
+                    image_base64 = roi_result['processed_image']
+                else:
+                    print(f"ROI 처리 실패, 원본 이미지 사용: {roi_result['error']}")
+            else:
+                print("ROI 처리를 건너뛰고 원본 이미지를 사용합니다.")
             
             # API 요청 데이터 (클로바 OCR V2 형식)
             request_data = {
@@ -96,14 +114,21 @@ class ClovaOCREngine:
                         if 'inferText' in field:
                             full_text += field['inferText'] + " "
                 
+                # 텍스트 후처리 (영양성분 인식률 향상)
+                if use_roi and full_text.strip():
+                    enhanced_text = self.roi_processor.enhance_nutrition_text_recognition(full_text.strip())
+                    print(f"📝 텍스트 후처리 적용: {len(full_text)} → {len(enhanced_text)} 문자")
+                    full_text = enhanced_text
+                
                 return {
                     'success': True,
                     'full_text': full_text.strip(),
                     'raw_result': result,
                     'model_info': {
-                        'engine': '네이버 클로바 OCR',
+                        'engine': '네이버 클로바 OCR (ROI 처리 적용)',
                         'api_url': self.api_url,
-                        'version': 'V2'
+                        'version': 'V2',
+                        'roi_processing': use_roi
                     }
                 }
             else:

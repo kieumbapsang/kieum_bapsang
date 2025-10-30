@@ -1,6 +1,24 @@
 import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 
+// 한국 시간대를 고려한 날짜를 YYYY-MM-DD 형식으로 변환
+export const toKoreanDateString = (date) => {
+  if (!date) return '';
+  
+  // 로컬 시간대를 그대로 사용 (브라우저가 한국 시간대에 설정되어 있다면)
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  
+  return `${year}-${month}-${day}`;
+};
+
+// 한국 시간대를 고려한 현재 날짜 반환
+export const getKoreanDate = () => {
+  // 현재 로컬 시간을 그대로 사용 (브라우저가 한국 시간대에 설정되어 있다면)
+  return new Date();
+};
+
 // 날짜 포맷팅 함수
 export const formatDate = (dateString, formatStr = 'yyyy년 MM월 dd일') => {
   try {

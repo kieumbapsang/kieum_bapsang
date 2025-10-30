@@ -4,24 +4,14 @@ import { MealCard, Meal } from '../features/meals/components/MealCard';
 import { AddMealModal } from '../features/meals/components/AddMealModal';
 import { ConfirmModal } from '../components/ui/ConfirmModal';
 import { useMeals } from '../features/meals/hooks/useMeals';
-
-
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1 }
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0 }
-};
+import { getKoreanDate, toKoreanDateString } from '../lib/utils';
 
 export const MealsPage: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date()); // 현재 날짜로 설정
+  const [selectedDate, setSelectedDate] = useState(getKoreanDate()); // 한국 시간대 현재 날짜로 설정
   const [selectedMeal, setSelectedMeal] = useState<Meal | null>(null);
   const [mealToDelete, setMealToDelete] = useState<Meal | null>(null);
-  const { getMealsByDate, deleteMeal, updateMeal, fetchMealsByDate, loading, error } = useMeals();
+  const { getMealsByDate, deleteMeal, updateMeal, fetchMealsByDate } = useMeals();
 
   const selectedDateMeals = getMealsByDate(selectedDate);
   
@@ -71,7 +61,7 @@ export const MealsPage: React.FC = () => {
   };
 
   const formatDate = (date: Date) => {
-    const today = new Date();
+    const today = getKoreanDate();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
 
@@ -107,14 +97,14 @@ export const MealsPage: React.FC = () => {
         transition={{ duration: 0.5 }}
       >
         <h1 className="text-2xl font-bold">식사 기록</h1>
-        <motion.button
+        {/* <motion.button
           className="bg-primary-500 text-white px-4 py-2 rounded-lg"
           onClick={() => setIsAddModalOpen(true)}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
         >
           식사 추가
-        </motion.button>
+        </motion.button> */}
       </motion.div>
 
       <motion.div 
@@ -126,12 +116,12 @@ export const MealsPage: React.FC = () => {
         <div className="flex items-center gap-4">
           <input
             type="date"
-            value={selectedDate.toISOString().split('T')[0]}
+            value={toKoreanDateString(selectedDate)}
             onChange={(e) => setSelectedDate(new Date(e.target.value))}
             className="flex-1 p-3 border border-gray-200 rounded-lg"
           />
           <button
-            onClick={() => setSelectedDate(new Date())}
+            onClick={() => setSelectedDate(getKoreanDate())}
             className="px-4 py-3 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50"
           >
             오늘
@@ -218,7 +208,7 @@ export const MealsPage: React.FC = () => {
           </motion.div>
 
           {/* 식사 추가 버튼 */}
-          {selectedDateMeals.length === 0 && yesterdayMeals.length === 0 && (
+          {/* {selectedDateMeals.length === 0 && yesterdayMeals.length === 0 && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -253,7 +243,7 @@ export const MealsPage: React.FC = () => {
                 </button>
               </div>
             </motion.div>
-          )}
+          )} */}
         </motion.div>
       </AnimatePresence>
 

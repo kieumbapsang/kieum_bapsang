@@ -9,7 +9,6 @@ export const MyPage: React.FC = () => {
       
       <div className="space-y-6">
         <AccountInfo />
-        <PasswordChange />
       </div>
     </div>
   );

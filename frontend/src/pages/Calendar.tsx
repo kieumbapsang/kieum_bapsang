@@ -1,10 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, startOfWeek, endOfWeek } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import { useMeals } from '../features/meals/hooks/useMeals';
+import { MealCard, Meal } from '../features/meals/components/MealCard';
+import { AddMealModal } from '../features/meals/components/AddMealModal';
+import { ConfirmModal } from '../components/ui/ConfirmModal';
+import { AlertModal } from '../components/ui/AlertModal';
+import { getKoreanDate } from '../lib/utils';
 
 export const CalendarPage = () => {
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentDate, setCurrentDate] = useState(getKoreanDate());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [selectedMeal, setSelectedMeal] = useState<Meal | null>(null);
+  const [mealToDelete, setMealToDelete] = useState<Meal | null>(null);
+  
+  const { getMealsByDate, deleteMeal, updateMeal, fetchMealsByDate, loading, error } = useMeals();
+  const [isFutureModalOpen, setIsFutureModalOpen] = useState(false);
 
   // 현재 월의 시작일과 마지막일
   const monthStart = startOfMonth(currentDate);
@@ -32,26 +44,78 @@ export const CalendarPage = () => {
 
   // 오늘로 이동
   const goToToday = () => {
-    setCurrentDate(new Date());
-    setSelectedDate(new Date());
+    setCurrentDate(getKoreanDate());
+    setSelectedDate(getKoreanDate());
   };
+
+  // 월이 변경될 때 해당 월의 모든 날짜에 대해 식사 데이터 미리 로드
+  useEffect(() => {
+    const loadMonthMeals = async () => {
+      for (const date of calendarDays) {
+        if (isSameMonth(date, currentDate)) {
+          fetchMealsByDate(date);
+        }
+      }
+    };
+    
+    loadMonthMeals();
+  }, [currentDate, fetchMealsByDate]);
 
   // 날짜 클릭 핸들러
   const handleDateClick = (date: Date) => {
     setSelectedDate(date);
+    // 선택된 날짜의 식사 데이터 가져오기
+    fetchMealsByDate(date);
   };
 
-  // 샘플 데이터 (실제로는 API에서 가져올 데이터)
-  const getMealsForDate = (date: Date) => {
-    // 샘플 데이터 - 실제로는 API에서 가져올 데이터
-    const sampleMeals: { [key: string]: string[] } = {
-      '2024-01-15': ['아침: 오트밀', '점심: 샐러드', '저녁: 닭가슴살'],
-      '2024-01-20': ['아침: 토스트', '점심: 파스타'],
-      '2024-01-25': ['아침: 계란', '점심: 김치찌개', '저녁: 불고기']
-    };
-    
-    const dateKey = format(date, 'yyyy-MM-dd');
-    return sampleMeals[dateKey] || [];
+  // 선택된 날짜의 식사 데이터 가져오기
+  const selectedDateMeals = selectedDate ? getMealsByDate(selectedDate) : [];
+
+  // 식사 삭제 확인 핸들러
+  const handleDeleteConfirm = () => {
+    if (mealToDelete && selectedDate) {
+      deleteMeal(selectedDate, mealToDelete.id);
+      setMealToDelete(null);
+    }
+  };
+
+  // 식사 삭제 핸들러
+  const handleDelete = (meal: Meal) => {
+    setMealToDelete(meal);
+  };
+
+  // 식사 수정 핸들러
+  const handleEdit = (meal: Meal) => {
+    setSelectedMeal(meal);
+    setIsAddModalOpen(true);
+  };
+
+  // 모달 닫기 핸들러
+  const handleModalClose = () => {
+    setIsAddModalOpen(false);
+    setSelectedMeal(null);
+  };
+
+  // 식사 업데이트 핸들러
+  const handleMealUpdate = (updatedMeal: Meal) => {
+    if (selectedMeal && selectedDate) {
+      updateMeal(selectedDate, selectedMeal.id, updatedMeal);
+    }
+    handleModalClose();
+  };
+
+  // 식사 추가 핸들러
+  const handleAddMeal = () => {
+    if (!selectedDate) return;
+
+    const today = new Date();
+    if (selectedDate > today) {
+      setIsFutureModalOpen(true);
+      return;
+    }
+
+    setSelectedMeal(null);
+    setIsAddModalOpen(true);
   };
 
   return (
@@ -104,7 +168,7 @@ export const CalendarPage = () => {
           const isCurrentMonth = isSameMonth(date, currentDate);
           const isToday = isSameDay(date, new Date());
           const isSelected = selectedDate && isSameDay(date, selectedDate);
-          const meals = getMealsForDate(date);
+          const meals = getMealsByDate(date);
           const hasMeals = meals.length > 0;
 
           return (
@@ -117,7 +181,7 @@ export const CalendarPage = () => {
                 ${isToday ? 'bg-primary-100 text-primary-700 font-bold' : ''}
                 ${isSelected ? 'bg-primary-500 text-white' : ''}
                 ${!isSelected && !isToday ? 'hover:bg-neutral-100' : ''}
-                ${hasMeals ? 'ring-2 ring-primary-200' : ''}
+                ${/* hasMeals ? 'ring-2 ring-primary-200' : '' */ ''}
               `}
             >
               {format(date, 'd')}
@@ -134,16 +198,37 @@ export const CalendarPage = () => {
       {/* 선택된 날짜의 식사 정보 */}
       {selectedDate && (
         <div className="mt-6 p-4 bg-neutral-50 rounded-lg">
-          <h3 className="text-lg font-semibold text-neutral-900 mb-3">
-            {format(selectedDate, 'M월 d일 (E)', { locale: ko })} 식사 기록
-          </h3>
-          {getMealsForDate(selectedDate).length > 0 ? (
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-semibold text-neutral-900">
+              {format(selectedDate, 'M월 d일 (E)', { locale: ko })} 식사 기록
+            </h3>
+            {/* <button
+              onClick={handleAddMeal}
+              className="px-3 py-1 text-sm bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
+            >
+              식사 추가
+            </button> */}
+          </div>
+          
+          {loading ? (
+            <div className="text-center py-8 text-neutral-500">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mx-auto mb-3"></div>
+              <p>식사 데이터를 불러오는 중...</p>
+            </div>
+          ) : error ? (
+            <div className="text-center py-8 text-red-500">
+              <p>식사 데이터를 불러오는데 실패했습니다: {error}</p>
+            </div>
+          ) : selectedDateMeals.length > 0 ? (
             <div className="space-y-2">
-              {getMealsForDate(selectedDate).map((meal: string, index: number) => (
-                <div key={index} className="flex items-center p-2 bg-white rounded-lg shadow-sm">
-                  <div className="w-2 h-2 bg-primary-500 rounded-full mr-3"></div>
-                  <span className="text-neutral-700">{meal}</span>
-                </div>
+              {selectedDateMeals.map((meal) => (
+                <MealCard
+                  key={meal.id}
+                  meal={meal}
+                  accentColor="text-primary-500"
+                  onDelete={() => handleDelete(meal)}
+                  onEdit={() => handleEdit(meal)}
+                />
               ))}
             </div>
           ) : (
@@ -152,13 +237,43 @@ export const CalendarPage = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
               </svg>
               <p>이 날의 식사 기록이 없습니다</p>
-              <button className="mt-3 px-4 py-2 bg-primary-500 text-white rounded-lg text-sm hover:bg-primary-600 transition-colors">
+              <button 
+                onClick={handleAddMeal}
+                className="mt-3 px-4 py-2 bg-primary-500 text-white rounded-lg text-sm hover:bg-primary-600 transition-colors"
+              >
                 식사 추가하기
               </button>
             </div>
           )}
         </div>
       )}
+
+      {/* 식사 추가/수정 모달 */}
+      <AddMealModal
+        isOpen={isAddModalOpen}
+        onClose={handleModalClose}
+        initialMeal={selectedMeal}
+        onSubmit={handleMealUpdate}
+        selectedDate={selectedDate}
+      />
+
+      {/* 식사 삭제 확인 모달 */}
+      <ConfirmModal
+        isOpen={mealToDelete !== null}
+        onClose={() => setMealToDelete(null)}
+        onConfirm={handleDeleteConfirm}
+        title="식사 기록 삭제"
+        message={`${mealToDelete?.name || ''} 기록을 삭제하시겠습니까?`}
+      />
+
+      {/* 미래 날짜 선택 시 경고 모달 */}
+      <AlertModal
+        isOpen={isFutureModalOpen}
+        onClose={() => setIsFutureModalOpen(false)}
+        title="식사 추가 불가"
+        message="오늘 이후의 날짜에는 식사 기록을 추가할 수 없습니다."
+        buttonText='확인'
+      />
     </div>
   );
 };

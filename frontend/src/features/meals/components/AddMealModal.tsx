@@ -2,19 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { Meal } from './MealCard';
 import { FoodItem, searchFoods } from '../data/foodData';
 import { api } from '../../../api/client';
+import { toKoreanDateString, getKoreanDate } from '../../../lib/utils';
 
 export interface AddMealModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialMeal?: Meal | null;
   onSubmit: (meal: Meal) => void;
+  selectedDate?: Date | null;
 }
 
 export const AddMealModal: React.FC<AddMealModalProps> = ({
   isOpen,
   onClose,
   initialMeal,
-  onSubmit
+  onSubmit,
+  selectedDate
 }) => {
   const [mealData, setMealData] = useState<Partial<Meal>>(() => {
     if (initialMeal) {
@@ -44,6 +47,8 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
   const [isProcessingOCR, setIsProcessingOCR] = useState(false);
   const [ocrError, setOcrError] = useState<string>('');
   const [validationError, setValidationError] = useState<string>('');
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+
   
   // 영양성분 입력 필드용 별도 상태 (문자열로 처리)
   const [nutritionInputs, setNutritionInputs] = useState(() => {
@@ -74,12 +79,13 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
   });
 
 
+
   const processImageWithOCR = async (file: File) => {
     setIsProcessingOCR(true);
     setOcrError('');
 
     try {
-      const result = await api.ocr.uploadImage(file);
+      const result = await api.ocr.uploadImage(file, false, null);
       
       if (result.error) {
         setOcrError(result.error);
@@ -297,7 +303,7 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
         saturated_fat: parseNutritionValue(nutritionInputs.saturatedFat),
         trans_fat: parseNutritionValue(nutritionInputs.transFat),
       },
-      intake_date: new Date().toISOString().split('T')[0] // YYYY-MM-DD 형식
+      intake_date: selectedDate ? toKoreanDateString(selectedDate) : toKoreanDateString(getKoreanDate()) // YYYY-MM-DD 형식
     };
 
     // 백엔드로 식사 추가/수정 요청
@@ -599,21 +605,44 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
               <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
                 <div className="space-y-1 text-center w-full">
                   {selectedImage ? (
-                    <div className="relative">
-                      <img
-                        src={URL.createObjectURL(selectedImage)}
-                        alt="Preview"
-                        className="mx-auto h-48 w-full max-w-sm object-cover rounded-lg"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setSelectedImage(null)}
-                        className="absolute top-0 right-0 -mt-2 -mr-2 bg-red-500 text-white rounded-full p-1"
-                      >
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
+                    <div className="space-y-3">
+                      <div className="relative">
+                        {imagePreview ? (
+                          <img
+                            src={imagePreview}
+                            alt="업로드된 이미지"
+                            className="mx-auto h-48 w-full max-w-sm object-contain rounded-lg border-2 border-gray-300"
+                          />
+                        ) : null}
+                        
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedImage(null);
+                            setImagePreview(null);
+                          }}
+                          className="absolute top-0 right-0 -mt-2 -mr-2 bg-red-500 text-white rounded-full p-1"
+                        >
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                      
+                      {/* OCR 처리 상태 */}
+                      {isProcessingOCR && (
+                        <div className="flex items-center justify-center space-x-2 text-blue-600">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                          <span className="text-sm">영양성분 정보를 분석 중...</span>
+                        </div>
+                      )}
+                      
+                      {/* OCR 오류 메시지 */}
+                      {ocrError && (
+                        <div className="text-red-600 text-sm text-center p-2 bg-red-50 rounded-md">
+                          {ocrError}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <>
@@ -649,6 +678,15 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
                               if (e.target.files?.[0]) {
                                 const file = e.target.files[0];
                                 setSelectedImage(file);
+                                
+                                // 이미지 미리보기 생성
+                                const reader = new FileReader();
+                                reader.onload = (event) => {
+                                  setImagePreview(event.target?.result as string);
+                                };
+                                reader.readAsDataURL(file);
+                                
+                                // 이미지 업로드 시 자동으로 OCR 처리
                                 processImageWithOCR(file);
                               }
                             }}
@@ -656,6 +694,7 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
                         </label>
                       </div>
                       <p className="text-xs text-gray-500 mt-2">PNG, JPG, GIF up to 10MB</p>
+                      
                     </>
                   )}
                 </div>

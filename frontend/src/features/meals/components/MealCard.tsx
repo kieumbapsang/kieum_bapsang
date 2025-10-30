@@ -59,9 +59,9 @@ export const MealCard: React.FC<MealCardProps> = ({
   const [isExpanded, setIsExpanded] = useState(false);
 
   // 디버깅: 콜라의 당 정보 확인
-  if (meal.name === '콜라') {
-    console.log(`🍯 MealCard에서 콜라 당 정보:`, meal.sugar);
-  }
+  // if (meal.name === '콜라') {
+  //   console.log(`🍯 MealCard에서 콜라 당 정보:`, meal.sugar);
+  // }
 
   const handleDelete = () => {
     onDelete();
@@ -173,7 +173,7 @@ export const MealCard: React.FC<MealCardProps> = ({
           </button>
           <svg 
             className={`w-5 h-5 text-gray-500 transition-transform duration-300 ${
-              isExpanded ? 'transform rotate-180' : ''
+              isExpanded ? '' : 'transform rotate-180'
             }`}
             fill="none" 
             stroke="currentColor" 

@@ -6,7 +6,7 @@ export const SettingsPage: React.FC = () => {
     <div className="max-w-lg mx-auto px-4 py-6">
       <h1 className="text-2xl font-bold mb-6">설정</h1>
       
-      <div className="space-y-6">
+      <div className="space-y-6 [&>div:last-child]:pb-0">
         <FAQ />
       </div>
     </div>
