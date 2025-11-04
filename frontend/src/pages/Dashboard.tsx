@@ -443,7 +443,7 @@ export const DashboardPage: React.FC = () => {
           <CardHeader className="p-6">
             <div className="flex justify-between items-center">
               <CardTitle className="text-lg">내 근처 가맹점</CardTitle>
-              <span className="text-sm text-gray-500">상세보기</span>
+              <span className="text-sm text-gray-500">{dashboardData?.userProfile?.address || ''}</span>
             </div>
           </CardHeader>
           <CardContent className="pt-0">
