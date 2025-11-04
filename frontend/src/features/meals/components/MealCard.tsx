@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 
 type NutrientRowProps = {
   label: string;
@@ -50,6 +51,14 @@ type MealCardProps = {
   onEdit: (meal: Meal) => void;
 };
 
+type PieChartDataItem = {
+  name: string;
+  value: number;
+  color: string;
+  grams: number;
+  isNoCalorie?: boolean;
+};
+
 export const MealCard: React.FC<MealCardProps> = ({ 
   meal, 
   accentColor, 
@@ -70,6 +79,128 @@ export const MealCard: React.FC<MealCardProps> = ({
   const handleEdit = () => {
     onEdit(meal);
   };
+
+  // 식사 데이터 기반 영양소 그래프 (8개 영양소)
+  const getPieChartData = (): PieChartDataItem[] => {
+    const data: PieChartDataItem[] = [];
+    
+    // 값이 존재 확인 헬퍼 함수 (소수점 포함)
+    const hasValue = (val: number | undefined): boolean => {
+      return val !== undefined && val !== null && !isNaN(val) && val > 0;
+    };
+    
+    // 탄수화물 
+    if (hasValue(meal.carbs)) {
+      const carbsValue = meal.carbs * 4; // 1g = 4kcal
+      if (hasValue(meal.sugar) && meal.sugar !== undefined && meal.sugar < meal.carbs) {
+        
+        const sugarValue = meal.sugar;
+        const carbsWithoutSugar = Math.max(0, (meal.carbs - sugarValue) * 4);
+        if (carbsWithoutSugar > 0) {
+          data.push({
+            name: '탄수화물',
+            value: carbsWithoutSugar,
+            color: '#3B82F6',
+            grams: Math.max(0, meal.carbs - sugarValue)
+          });
+        }
+      } else {
+        data.push({
+          name: '탄수화물',
+          value: carbsValue,
+          color: '#3B82F6',
+          grams: meal.carbs
+        });
+      }
+    }
+
+    // 단백질
+    if (hasValue(meal.protein)) {
+      data.push({
+        name: '단백질',
+        value: meal.protein * 4, // 1g = 4kcal
+        color: '#10B981',
+        grams: meal.protein
+      });
+    }
+
+    // 지방
+    if (hasValue(meal.fat)) {
+      const saturatedFat = meal.saturatedFat || 0;
+      const transFat = meal.transFat || 0;
+      const fatWithoutSaturatedAndTrans = Math.max(0, meal.fat - saturatedFat - transFat);
+      
+      if (fatWithoutSaturatedAndTrans > 0) {
+        data.push({
+          name: '지방',
+          value: fatWithoutSaturatedAndTrans * 9, // 1g = 9kcal
+          color: '#F59E0B',
+          grams: fatWithoutSaturatedAndTrans
+        });
+      }
+    }
+
+    // 포화지방
+    if (hasValue(meal.saturatedFat)) {
+      const saturatedFatValue = meal.saturatedFat!;
+      data.push({
+        name: '포화지방',
+        value: saturatedFatValue * 9, // 1g = 9kcal
+        color: '#F97316',
+        grams: saturatedFatValue
+      });
+    }
+
+    // 트랜스지방
+    if (hasValue(meal.transFat)) {
+      const transFatValue = meal.transFat!;
+      data.push({
+        name: '트랜스지방',
+        value: transFatValue * 9, // 1g = 9kcal
+        color: '#DC2626',
+        grams: transFatValue
+      });
+    }
+
+    // 당
+    if (hasValue(meal.sugar)) {
+      const sugarValue = meal.sugar!;
+      data.push({
+        name: '당',
+        value: sugarValue * 4, // 1g = 4kcal
+        color: '#8B5CF6',
+        grams: sugarValue
+      });
+    }
+
+    // 콜레스테롤
+    if (hasValue(meal.cholesterol)) {
+      data.push({
+        name: '콜레스테롤',
+        value: 0.001, // 칼로리 없음, 그래프에 표시하기 위한 최소값
+        color: '#A78BFA',
+        grams: typeof meal.cholesterol === 'number' ? meal.cholesterol : 0,
+        isNoCalorie: true 
+      });
+    }
+
+    // 나트륨
+    if (hasValue(meal.sodium)) {
+      data.push({
+        name: '나트륨',
+        value: 0.001, // 칼로리 없음, 그래프에 표시하기 위한 최소값
+        color: '#60A5FA',
+        grams: typeof meal.sodium === 'number' ? meal.sodium : 0,
+        isNoCalorie: true 
+      });
+    }
+
+    return data;
+  };
+
+  const pieChartData = getPieChartData();
+  const calorieProvidingData = pieChartData.filter(item => !item.isNoCalorie);
+  const totalMacroCalories = calorieProvidingData.reduce((sum, item) => sum + item.value, 0);
 
   return (
     <motion.div 
@@ -198,6 +329,64 @@ export const MealCard: React.FC<MealCardProps> = ({
             transition={{ duration: 0.3, ease: "easeInOut" }}
             className="pb-4 px-4 bg-white overflow-hidden"
           >
+            {/* 원 그래프 섹션 */}
+            {totalMacroCalories > 0 && (
+              <div className="mb-4 border border-gray-200 rounded-lg overflow-hidden bg-white">
+                <div className="bg-gray-50 p-4">
+                  <h4 className="text-md font-semibold text-gray-900 text-center">영양소 분포</h4>
+                  <div className="flex flex-col items-center">
+                    <div className="w-full max-w-[200px] h-[200px] relative mb-3">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={calorieProvidingData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={50}
+                            outerRadius={70}
+                            dataKey="value"
+                          >
+                            {calorieProvidingData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 w-full max-w-[320px] text-xs">
+                      {pieChartData.map((item, index) => {
+                        let displayValue = '';
+                        
+                        if (item.isNoCalorie) {
+                          // 칼로리 없는 영양소 (콜레스테롤, 나트륨)
+                          displayValue = `${item.grams.toFixed(1)}mg`;
+                        } else {
+                          // 칼로리 제공 영양소
+                          const percentage = totalMacroCalories > 0 
+                            ? Math.round((item.value / totalMacroCalories) * 100) 
+                            : 0;
+                          displayValue = `${percentage}% (${item.grams.toFixed(1)}g)`;
+                        }
+                        
+                        return (
+                          <div key={index} className="flex items-center gap-2">
+                            <div 
+                              className="w-3 h-3 rounded-full flex-shrink-0" 
+                              style={{ backgroundColor: item.color }}
+                            ></div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-gray-900 truncate">{item.name}</div>
+                              <div className="text-gray-500">{displayValue}</div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="border border-gray-200 rounded-lg overflow-hidden">
               <div className="bg-black text-white p-3">
                 <div className="text-sm">영양정보</div>
