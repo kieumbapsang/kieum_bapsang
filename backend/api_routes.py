@@ -269,9 +269,10 @@ async def ocr_upload(file: UploadFile = File(...), use_roi: bool = True, roi_bbo
         # 실제 OCR 처리 (API 설정이 있는 경우)
         result = ocr_engine.extract_text(image_data, use_roi=False)  # 이미 ROI 처리됨
         
-        # 영양성분 정보 추출
+        # 영양성분 정보 추출 (파싱 전략 활용)
         if result['success'] and result['full_text']:
-            nutrition_info = ocr_engine.extract_nutrition_values(result['full_text'])
+            parsing_strategy = result.get('parsing_strategy')
+            nutrition_info = ocr_engine.extract_nutrition_values(result['full_text'], parsing_strategy=parsing_strategy)
             result['nutrition_info'] = nutrition_info
             result['model_info']['user_roi'] = roi_bbox if use_roi else None
         

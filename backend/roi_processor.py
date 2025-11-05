@@ -10,6 +10,7 @@ import base64
 import io
 from typing import Tuple, List, Optional, Dict
 import re
+from pattern_learner import PatternLearner
 
 
 class ROIProcessor:
@@ -17,7 +18,7 @@ class ROIProcessor:
     
     def __init__(self):
         """ROI 프로세서 초기화"""
-        print("🔍 ROI 프로세서를 초기화하는 중...")
+        print("ROI 프로세서를 초기화하는 중...")
         
         # 영양성분표 관련 키워드 (한국어/영어)
         self.nutrition_keywords = [
@@ -29,7 +30,17 @@ class ROIProcessor:
             '콜레스테롤', 'cholesterol', '식이섬유', 'fiber'
         ]
         
-        print("✅ ROI 프로세서 초기화 완료!")
+        # 패턴 학습기 초기화
+        try:
+            self.pattern_learner = PatternLearner()
+            self.use_pattern_matching = True
+            print("패턴 학습기 로드 완료")
+        except Exception as e:
+            print(f"패턴 학습기 로드 실패: {str(e)}")
+            self.pattern_learner = None
+            self.use_pattern_matching = False
+        
+        print("ROI 프로세서 초기화 완료!")
     
     def detect_nutrition_table_region(self, image: np.ndarray) -> Optional[Tuple[int, int, int, int]]:
         """
@@ -94,7 +105,7 @@ class ROIProcessor:
             return best_candidate['bbox']
             
         except Exception as e:
-            print(f"❌ 영양성분표 영역 감지 실패: {str(e)}")
+            print(f"영양성분표 영역 감지 실패: {str(e)}")
             return None
     
     def extract_roi_from_image(self, image: np.ndarray, bbox: Tuple[int, int, int, int]) -> np.ndarray:
@@ -157,7 +168,7 @@ class ROIProcessor:
             return processed
             
         except Exception as e:
-            print(f"❌ ROI 전처리 실패: {str(e)}")
+            print(f"ROI 전처리 실패: {str(e)}")
             return roi_image
     
     def detect_text_regions_in_roi(self, roi_image: np.ndarray) -> List[Tuple[int, int, int, int]]:
@@ -203,12 +214,13 @@ class ROIProcessor:
             return text_regions
             
         except Exception as e:
-            print(f"❌ 텍스트 영역 감지 실패: {str(e)}")
+            print(f"텍스트 영역 감지 실패: {str(e)}")
             return []
     
     def process_image_with_roi(self, image_data: str) -> Dict:
         """
         이미지에서 ROI를 추출하고 전처리하여 OCR에 최적화된 이미지 반환
+        패턴 학습을 통한 템플릿 매칭 적용
         
         Args:
             image_data: base64 인코딩된 이미지 데이터
@@ -228,16 +240,36 @@ class ROIProcessor:
             pil_image = Image.open(io.BytesIO(image_bytes))
             opencv_image = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
             
+            # 패턴 매칭 시도
+            matched_template = None
+            parsing_strategy = None
+            
+            if self.use_pattern_matching and self.pattern_learner:
+                try:
+                    # 그레이스케일 변환
+                    gray_image = cv2.cvtColor(opencv_image, cv2.COLOR_BGR2GRAY)
+                    
+                    # 템플릿 매칭
+                    matched_template = self.pattern_learner.match_template(gray_image)
+                    
+                    if matched_template:
+                        # 파싱 전략 생성
+                        parsing_strategy = self.pattern_learner.get_parsing_strategy(matched_template)
+                        print(f"매칭된 템플릿: {matched_template['template_name']}")
+                        print(f"파싱 전략: {parsing_strategy.get('format_type', 'unknown')} - {parsing_strategy.get('layout_type', 'unknown')}")
+                except Exception as e:
+                    print(f"패턴 매칭 오류 (무시하고 계속): {str(e)}")
+            
             # 영양성분표 영역 감지
             bbox = self.detect_nutrition_table_region(opencv_image)
             
             if bbox is None:
-                print("⚠️ 영양성분표 영역을 찾을 수 없습니다. 전체 이미지를 사용합니다.")
+                print("영양성분표 영역을 찾을 수 없습니다. 전체 이미지를 사용합니다.")
                 # 전체 이미지 사용
                 processed_image = self.preprocess_roi(opencv_image)
                 roi_bbox = (0, 0, opencv_image.shape[1], opencv_image.shape[0])
             else:
-                print(f"✅ 영양성분표 영역 감지: {bbox}")
+                print(f"영양성분표 영역 감지: {bbox}")
                 # ROI 추출
                 roi_image = self.extract_roi_from_image(opencv_image, bbox)
                 # ROI 전처리
@@ -248,13 +280,21 @@ class ROIProcessor:
             _, buffer = cv2.imencode('.jpg', processed_image)
             processed_base64 = base64.b64encode(buffer).decode('utf-8')
             
-            return {
+            result = {
                 'success': True,
                 'processed_image': processed_base64,
                 'roi_bbox': roi_bbox,
                 'original_size': (opencv_image.shape[1], opencv_image.shape[0]),
                 'processed_size': (processed_image.shape[1], processed_image.shape[0])
             }
+            
+            # 패턴 매칭 결과 추가
+            if matched_template:
+                result['matched_template'] = matched_template
+            if parsing_strategy:
+                result['parsing_strategy'] = parsing_strategy
+            
+            return result
             
         except Exception as e:
             return {
@@ -303,7 +343,7 @@ class ROIProcessor:
             return enhanced_text
             
         except Exception as e:
-            print(f"❌ 텍스트 후처리 실패: {str(e)}")
+            print(f"텍스트 후처리 실패: {str(e)}")
             return text
 
 
