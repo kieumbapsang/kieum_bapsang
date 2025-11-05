@@ -212,7 +212,7 @@ export const MealCard: React.FC<MealCardProps> = ({
       onClick={() => setIsExpanded(!isExpanded)}
     >
       <div 
-        className="flex items-center justify-between py-3 cursor-pointer hover:bg-gray-50 transition-colors px-2"
+        className="flex items-center justify-between py-3 cursor-pointer transition-colors px-2"
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <div className="flex items-center gap-3">
@@ -332,7 +332,7 @@ export const MealCard: React.FC<MealCardProps> = ({
             {/* 원 그래프 섹션 */}
             {totalMacroCalories > 0 && (
               <div className="mb-4 border border-gray-200 rounded-lg overflow-hidden bg-white">
-                <div className="bg-gray-50 p-4">
+                <div className="p-4">
                   <h4 className="text-md font-semibold text-gray-900 text-center">영양소 분포</h4>
                   <div className="flex flex-col items-center">
                     <div className="w-full max-w-[200px] h-[200px] relative mb-3">
@@ -353,7 +353,7 @@ export const MealCard: React.FC<MealCardProps> = ({
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
-                    <div className="grid grid-cols-2 gap-3 w-full max-w-[320px] text-xs">
+                    <div className="grid place-items-center grid-cols-2 gap-3 w-full max-w-[320px] text-xs">
                       {pieChartData.map((item, index) => {
                         let displayValue = '';
                         
