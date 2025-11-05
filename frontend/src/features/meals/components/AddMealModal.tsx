@@ -99,12 +99,13 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
           
           // 영양성분 값을 처리하는 헬퍼 함수
           const processNutritionValue = (value: any): string => {
-            if (value === '정보없음' || value === null || value === undefined) {
-              return '직접입력 필요';
+            // "-" 또는 "정보없음"은 0으로 처리
+            if (value === '정보없음' || value === null || value === undefined || value === '-' || value === '--') {
+              return '0';
             }
             const num = typeof value === 'string' ? parseFloat(value) : value;
             if (isNaN(num)) {
-              return '직접입력 필요';
+              return '0'; // 숫자가 아닌 경우도 0으로 처리
             }
             return num.toString();
           };
@@ -121,6 +122,26 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
             saturatedFat: processNutritionValue(nutrition.포화지방),
             transFat: processNutritionValue(nutrition.트랜스지방),
           });
+
+          // 총 내용량을 양(g) 필드에 자동 입력
+          if (nutrition.총내용량 && typeof nutrition.총내용량 === 'object' && nutrition.총내용량.amount) {
+            const totalContent = nutrition.총내용량;
+            let amountValue = totalContent.amount;
+            
+            // 단위 변환 (ml → g, kg → g, L → ml → g)
+            if (totalContent.unit === 'ml' || totalContent.unit === 'mL' || totalContent.unit === 'ML') {
+              // ml는 g과 비슷하게 처리 (1ml ≈ 1g)
+              amountValue = totalContent.amount;
+            } else if (totalContent.unit === 'kg') {
+              amountValue = totalContent.amount * 1000; // kg → g
+            } else if (totalContent.unit === 'L' || totalContent.unit === 'l') {
+              amountValue = totalContent.amount * 1000; // L → ml → g (1L ≈ 1000g)
+            }
+            // g 단위는 그대로 사용
+            
+            setMealData(prev => ({ ...prev, amount: Math.round(amountValue) }));
+            console.log(`📦 총 내용량을 양(g) 필드에 입력: ${Math.round(amountValue)}g (원본: ${totalContent.amount}${totalContent.unit || 'g'})`);
+          }
         }
       } else {
         setOcrError(result.data.error || 'OCR 처리에 실패했습니다.');
