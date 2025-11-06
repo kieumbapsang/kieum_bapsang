@@ -921,3 +921,186 @@ async def delete_user_profile(user_id: int):
     except Exception as e:
         print(f"❌ 사용자 프로필 삭제 에러: {str(e)}")
         raise HTTPException(status_code=500, detail=f"사용자 프로필 삭제 실패: {str(e)}")
+
+# ===== 가맹점 관련 API 엔드포인트 =====
+
+def extract_dong(address: str) -> str:
+    """주소에서 동/로/길 추출"""
+    if not address:
+        return ''
+    
+    import re
+    # 정규식으로 동/로/길 추출
+    dong_match = re.search(r'([가-힣]+동|[가-힣]+로|[가-힣]+길)', address)
+    if dong_match:
+        return dong_match.group(1)
+    
+    return ''
+
+@router.get("/stores")
+async def get_stores(
+    province: Optional[str] = Query(None, description="시도명 (예: 서울특별시)"),
+    city: Optional[str] = Query(None, description="시군구명 (예: 마포구)")
+):
+    """가맹점 목록 조회 (시도/시군구별 필터링)"""
+    try:
+        with db.get_connection() as conn:
+            with conn.cursor() as cursor:
+                # 기본 쿼리
+                query = """
+                    SELECT 
+                        id,
+                        store_name,
+                        province,
+                        city,
+                        road_address,
+                        jibun_address,
+                        latitude,
+                        longitude,
+                        phone_number
+                    FROM stores
+                    WHERE 1=1
+                """
+                params = []
+                
+                # 시도명 필터링
+                if province:
+                    query += " AND province = %s"
+                    params.append(province)
+                
+                # 시군구명 필터링
+                if city:
+                    query += " AND city = %s"
+                    params.append(city)
+                
+                query += " ORDER BY store_name"
+                
+                cursor.execute(query, params)
+                results = cursor.fetchall()
+                
+                # 결과를 Store 형식으로 변환
+                stores = []
+                for row in results:
+                    # 유효한 좌표가 있는 경우만 추가
+                    try:
+                        lat = float(row['latitude']) if row['latitude'] is not None else None
+                        lng = float(row['longitude']) if row['longitude'] is not None else None
+                        
+                        # 좌표가 없으면 건너뛰기
+                        if lat is None or lng is None:
+                            continue
+                        
+                        # 주소 우선순위: 도로명주소 > 지번주소
+                        address = row['road_address'] or row['jibun_address'] or ''
+                        # 주소에서 동 추출
+                        dong = extract_dong(address)
+                        
+                        stores.append({
+                            "id": row['id'],
+                            "name": row['store_name'],
+                            "address": address,
+                            "tel": row['phone_number'] if row['phone_number'] else None,
+                            "lat": lat,
+                            "lng": lng,
+                            "district": row['city'] or '',
+                            "dong": dong
+                        })
+                    except (ValueError, TypeError) as e:
+                        print(f"⚠️ 매장 데이터 변환 오류 (ID: {row.get('id', 'unknown')}): {str(e)}")
+                        continue
+                
+                return JSONResponse(content={
+                    "success": True,
+                    "message": "가맹점 목록 조회 성공",
+                    "data": stores
+                })
+                
+    except Exception as e:
+        print(f"❌ 가맹점 목록 조회 에러: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"가맹점 목록 조회 실패: {str(e)}")
+
+@router.get("/stores/districts")
+async def get_stores_by_districts(
+    province: str = Query(..., description="시도명 (예: 서울특별시)"),
+    cities: str = Query(..., description="시군구명 목록 (쉼표로 구분, 예: 마포구,강남구)")
+):
+    """시도 및 여러 시군구별 가맹점 목록 조회"""
+    try:
+        # 쉼표로 구분된 시군구명 리스트로 변환
+        city_list = [city.strip() for city in cities.split(',') if city.strip()]
+        
+        if not city_list:
+            return JSONResponse(content={
+                "success": True,
+                "message": "가맹점 목록 조회 성공",
+                "data": []
+            })
+        
+        with db.get_connection() as conn:
+            with conn.cursor() as cursor:
+                # IN 절을 사용하여 여러 시군구 조회
+                placeholders = ','.join(['%s'] * len(city_list))
+                query = f"""
+                    SELECT 
+                        id,
+                        store_name,
+                        province,
+                        city,
+                        road_address,
+                        jibun_address,
+                        latitude,
+                        longitude,
+                        phone_number
+                    FROM stores
+                    WHERE province = %s AND city IN ({placeholders})
+                    ORDER BY city, store_name
+                """
+                
+                params = [province] + city_list
+                cursor.execute(query, params)
+                results = cursor.fetchall()
+                
+                # 결과를 Store 형식으로 변환
+                stores = []
+                for row in results:
+                    # 유효한 좌표가 있는 경우만 추가
+                    try:
+                        lat = float(row['latitude']) if row['latitude'] is not None else None
+                        lng = float(row['longitude']) if row['longitude'] is not None else None
+                        
+                        # 좌표가 없으면 건너뛰기
+                        if lat is None or lng is None:
+                            continue
+                        
+                        # 주소 우선순위: 도로명주소 > 지번주소
+                        address = row['road_address'] or row['jibun_address'] or ''
+                        # 주소에서 동 추출
+                        dong = extract_dong(address)
+                        
+                        stores.append({
+                            "id": row['id'],
+                            "name": row['store_name'],
+                            "address": address,
+                            "tel": row['phone_number'] if row['phone_number'] else None,
+                            "lat": lat,
+                            "lng": lng,
+                            "district": row['city'] or '',
+                            "dong": dong
+                        })
+                    except (ValueError, TypeError) as e:
+                        print(f"⚠️ 매장 데이터 변환 오류 (ID: {row.get('id', 'unknown')}): {str(e)}")
+                        continue
+                
+                return JSONResponse(content={
+                    "success": True,
+                    "message": "가맹점 목록 조회 성공",
+                    "data": stores
+                })
+                
+    except Exception as e:
+        print(f"❌ 가맹점 목록 조회 에러: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"가맹점 목록 조회 실패: {str(e)}")

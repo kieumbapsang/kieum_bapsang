@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { api } from '../api/client';
+import { Store } from '../components/ui/kakaoMap';
+import { getStoresByDistrict } from '../services/storeService';
+import { set } from 'date-fns';
 
 // BMI 계산 함수
 const calculateBMI = (weight: number, height: number): number => {
@@ -274,10 +277,95 @@ const generateAlerts = (summary: any, averageNutritionByAge?: any[] | null, user
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
+  const [nearbyStores, setNearbyStores] = useState<Store[]>([]);
+  const [storeLoading, setStoresLoading] = useState(true);
+
   const { data: dashboardData, isLoading } = useQuery({
     queryKey: ['dashboard'],
     queryFn: fetchDashboardData,
   });
+
+  // 거주지별 가맹점 정보 상위 3개
+  const parseAddress = (address: string): { city: string, district: string } => {
+    if (!address) return { city: '서울특별시', district: '' };
+    console.log('원본 주소: ', address);
+
+    let normalized = address.trim();
+
+    const cityMapping: Record<string, string> = {
+      '서울시': '서울특별시',
+      '서울': '서울특별시',
+      '부산시': '부산광역시',
+      '부산': '부산광역시',
+      '대구시': '대구광역시',
+      '대구': '대구광역시',
+      '인천시': '인천광역시',
+      '인천': '인천광역시',
+      '광주시': '광주광역시',
+      '광주': '광주광역시',
+      '대전시': '대전광역시',
+      '대전': '대전광역시',
+      '울산시': '울산광역시',
+      '울산': '울산광역시',
+      '세종시': '세종특별자치시', 
+      '세종': '세종특별자치시',
+    };
+
+    for (const [short, full] of Object.entries(cityMapping)) {
+      if (normalized.startsWith(short)) {
+        const rest = normalized.substring(short.length).trim();
+        console.log('정규화된 주소:', full, rest);
+        return {
+          city: full,
+          district: rest
+        };
+      }
+    }
+
+    const addressPattern = /^(.+?)(특별시|광역시|특별자치시|특별자치도|도)\s+(.+?)(구|군|시)/;
+    const match = normalized.match(addressPattern);
+
+    if (match) {
+      const cityPart = match[1] + match[2];
+      const districtPart = match[3] + match[4];
+      console.log('정규화된 주소:', cityPart, districtPart);
+      return {
+        city: cityPart,
+        district: districtPart
+      };
+    }
+
+    console.log('파싱 실패, 기본값 반환');
+    return { city: '서울특별시', district: '' };
+  };
+
+  useEffect(() => {
+    const loadNearbyStores = async () => {
+      console.log('=== Dashboard: 가맹점 로드 시작 ====');
+      console.log('사용자 주소:', dashboardData?.userProfile?.address);
+      
+      setStoresLoading(true);
+      try {
+        const { city, district } = parseAddress(dashboardData?.userProfile?.address);
+        console.log('파생된 주소: ', {city, district});
+
+        const stores = await getStoresByDistrict(city, district ? [district] : []);
+        console.log('받아온 매장 수: ', stores.length);
+
+        const displayStores = stores.slice(0, 3);
+        console.log('표시할 매장: ', displayStores);
+        setNearbyStores(displayStores);
+      } catch (error) {
+        console.error('가맹점 로드 실패:', error);
+        setNearbyStores([]);
+      } finally {
+        setStoresLoading(false);
+        console.log('=== Dashboard: 가맹점 로드 완료 ====');
+      }
+    };
+
+    loadNearbyStores();
+  }, [dashboardData?.userProfile?.address]);
 
   if (isLoading) {
     return <div className="p-8 text-center">로딩 중...</div>;
@@ -321,6 +409,12 @@ export const DashboardPage: React.FC = () => {
   const carbsPercentage = totalMacroCalories > 0 ? Math.round((pieChartData[0].value / totalMacroCalories) * 100) : 0;
   const fatPercentage = totalMacroCalories > 0 ? Math.round((pieChartData[2].value / totalMacroCalories) * 100) : 0;
 
+  const isValidTel = (tel: string | undefined): boolean => {
+  if (!tel) return false;
+  const cleaned = tel.trim().replace(/[-\s]/g, '');
+  return cleaned !== '0000000000' && !/^0{3}[- ]?0{4}[- ]?0{4}$/.test(tel.trim());
+  };
+
   return (
     <motion.div 
       className="container mx-auto px-4 py-6 space-y-6 max-w-lg"
@@ -328,34 +422,6 @@ export const DashboardPage: React.FC = () => {
       initial="hidden"
       animate="visible"
     >
-      {/* 사용자 환영 메시지 */}
-      {/* <motion.div 
-        className="flex items-center"
-        variants={itemVariants}
-      >
-        <div>
-          {dashboardData?.userName ? (
-            <motion.h1 
-              className="text-xl font-bold text-gray-900"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5 }}
-            >
-              {dashboardData.userName}님, 안녕하세요 👋
-            </motion.h1>
-          ) : (
-            <motion.h1 
-              className="text-xl font-medium text-red-500"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.5 }}
-            >
-              네트워크를 확인해주세요.
-            </motion.h1>
-          )}
-        </div>
-      </motion.div> */}
-
       {/* 오늘의 섭취 칼로리 */}
       <motion.div variants={itemVariants}>
         <motion.div
@@ -448,50 +514,52 @@ export const DashboardPage: React.FC = () => {
           </CardHeader>
           <CardContent className="pt-0">
             <div className="space-y-4">
-              {[
-                {
-                  id: 1,
-                  name: '키즈 키친',
-
-                  address: '서대문구 연희동 123-45',
-                  tel: '02-1234-5678'
-                },
-                {
-                  id: 2,
-                  name: '영양만점 식당',
-            
-                  address: '서대문구 창천동 56-78',
-                  tel: '02-2345-6789'
-                },
-                {
-                  id: 3,
-                  name: '성장맘 레스토랑',
-                  
-                  address: '서대문구 대현동 90-12',
-                  tel: '02-3456-7890'
-                }
-              ].map((store) => (
-                <motion.div 
-                  key={store.id} 
-                  className="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
-                  whileHover={{ scale: 1.02, backgroundColor: "#F3F4F6" }}
-                  whileTap={{ scale: 0.98 }}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.1 }}
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-medium text-gray-900">{store.name}</h3>
-
+              {storeLoading ? (
+                <div className="text-center py-8 text-gray-500">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="mt-2 text-sm">가맹점 정보를 불러오는 중...</p>
+                </div>
+              ) : nearbyStores.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <p className="text-sm">근처에 등록된 가맹점이 없습니다.</p>
+                  <button
+                    onClick={() => navigate('/stores')}
+                    className="mt-3 text-blue-600 hover:text-blue-700 text-sm font-medium"
+                  >
+                    전체 가맹점 보기 →
+                  </button>
+                </div>
+              ) : (
+                nearbyStores.map((store) => (
+                  <motion.div
+                    key={store.id}
+                    className="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                    whileHover={{ scale: 1.02, backgroundColor: "#F3F4F6" }}
+                    whileTap={{ scale: 0.98 }}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.1 }}
+                    onClick={() => {
+                      navigate('/stores');
+                    }}
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-medium text-gray-900">{store.name}</h3>
+                        <div className="flex space-x-1">
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            {store.district}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="mt-1 space-y-1">
+                        <p className="text-xs text-gray-500">{store.address}</p>
+                        {isValidTel(store.tel) && <p className="text-xs text-gray-500">☎ {store.tel}</p>}
+                      </div>
                     </div>
-                    <div className="mt-1 space-y-1">
-                      <p className="text-xs text-gray-500">{store.address}</p>
-                      <p className="text-xs text-gray-500">☎ {store.tel}</p>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                ))
+              )}
             </div>
           </CardContent>
         </Card>

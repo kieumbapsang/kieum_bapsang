@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { BrowserRouter, Routes, Route, useLocation, Link } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GoogleOAuthProvider } from '@react-oauth/google';
+import { UserProvider } from './contexts/UserContext';
 import { AddMealModal } from './features/meals/components/AddMealModal';
 
 // 페이지 컴포넌트 import
@@ -11,17 +12,10 @@ import { LoginPage } from './pages/Login';
 import { NutritionAnalysisPage } from './pages/NutritionAnalysis';
 import { CalendarPage } from './pages/Calendar';
 import AdditionalInfoPage from './pages/AdditionalInfo';
-
-// 페이지 컴포넌트 import
 import { MyPage } from './pages/MyPage';
 import { SettingsPage } from './pages/Settings';
-
 import { MealsPage } from './pages/Meals';
-
-// 아직 구현되지 않은 페이지 컴포넌트
-const StoresPage = () => <div className="p-8 text-center">상점</div>;
-
-// 네비게이션 아이템 정의
+import { StoresPage } from './pages/Stores';
 
 // 레이아웃 컴포넌트
 const Layout = ({ children }) => {
@@ -165,20 +159,22 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-        <BrowserRouter>
-          <Routes>
-          <Route path="/" element={<StartPage />} />
-          <Route path="/home" element={<Layout><DashboardPage /></Layout>} />
-          <Route path="/meals" element={<Layout><MealsPage /></Layout>} />
-          <Route path="/stats" element={<Layout><NutritionAnalysisPage /></Layout>} />
-          <Route path="/calendar" element={<Layout><CalendarPage /></Layout>} />
-          <Route path="/stores" element={<Layout><StoresPage /></Layout>} />
-          <Route path="/mypage" element={<Layout><MyPage /></Layout>} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/settings" element={<Layout><SettingsPage /></Layout>} />
-          <Route path="/additional-info" element={<AdditionalInfoPage />} />
-        </Routes>
-      </BrowserRouter>
+        <UserProvider>
+          <BrowserRouter>
+            <Routes>
+            <Route path="/" element={<StartPage />} />
+            <Route path="/home" element={<Layout><DashboardPage /></Layout>} />
+            <Route path="/meals" element={<Layout><MealsPage /></Layout>} />
+            <Route path="/stats" element={<Layout><NutritionAnalysisPage /></Layout>} />
+            <Route path="/calendar" element={<Layout><CalendarPage /></Layout>} />
+            <Route path="/stores" element={<Layout><StoresPage /></Layout>} />
+            <Route path="/mypage" element={<Layout><MyPage /></Layout>} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/settings" element={<Layout><SettingsPage /></Layout>} />
+            <Route path="/additional-info" element={<AdditionalInfoPage />} />
+          </Routes>
+        </BrowserRouter>
+        </UserProvider>
       </GoogleOAuthProvider>
     </QueryClientProvider>
   );
