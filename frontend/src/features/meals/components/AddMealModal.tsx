@@ -480,12 +480,16 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
                   value={mealData.amount || ''}
                   placeholder="0"
                   onChange={(e) => {
-                    const newAmount = Number(e.target.value);
-                    // foodService에서 선택된 음식을 찾기
-                    if (mealData.foodId && isDataLoaded) {
+                    const newAmount = Number(e.target.value) || 0;
+                    
+                    // foodService에서 선택된 음식을 찾아서 영양성분 재계산
+                    if (mealData.foodId && isDataLoaded && newAmount > 0) {
                       const selectedFood = getFoodById(mealData.foodId);
                       if (selectedFood) {
+                        // 선택된 음식의 기본 제공량(보통 100g)을 기준으로 새로운 양에 맞춰 영양성분 재계산
                         const nutrients = calculateFoodNutrients(selectedFood, newAmount);
+                        
+                        // mealData 업데이트
                         setMealData(prev => ({
                           ...prev,
                           amount: newAmount,
@@ -499,9 +503,9 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
                           saturatedFat: nutrients.saturatedFat,
                           transFat: nutrients.transFat
                         }));
-                        // nutritionInputs도 업데이트
-                        setNutritionInputs(prev => ({
-                          ...prev,
+                        
+                        // nutritionInputs도 업데이트 (입력 필드에 자동으로 반영)
+                        setNutritionInputs({
                           calories: nutrients.calories.toString(),
                           protein: nutrients.protein.toString(),
                           carbs: nutrients.carbs.toString(),
@@ -511,11 +515,13 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
                           cholesterol: nutrients.cholesterol.toString(),
                           saturatedFat: nutrients.saturatedFat.toString(),
                           transFat: nutrients.transFat.toString()
-                        }));
+                        });
                       } else {
+                        // 음식을 찾을 수 없으면 양만 업데이트
                         setMealData(prev => ({ ...prev, amount: newAmount }));
                       }
                     } else {
+                      // foodId가 없거나 데이터가 로드되지 않았으면 양만 업데이트
                       setMealData(prev => ({ ...prev, amount: newAmount }));
                     }
                   }}
