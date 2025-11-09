@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Meal } from './MealCard';
-import { FoodItem, searchFoods } from '../data/foodData';
 import { api } from '../../../api/client';
 import { toKoreanDateString, getKoreanDate } from '../../../lib/utils';
+import { 
+  FoodNutrition, 
+  loadFoodData, 
+  searchFoodByName, 
+  getFoodById,
+  calculateNutrients as calculateFoodNutrients 
+} from '../../../services/foodService';
 
 export interface AddMealModalProps {
   isOpen: boolean;
@@ -153,19 +159,33 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
       setIsProcessingOCR(false);
     }
   };
-  const [searchResults, setSearchResults] = useState<FoodItem[]>([]);
+  const [searchResults, setSearchResults] = useState<FoodNutrition[]>([]);
   const [showResults, setShowResults] = useState(false);
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
+
+  // 음식 데이터 로드
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        await loadFoodData();
+        setIsDataLoaded(true);
+      } catch (error) {
+        console.error('음식 데이터 로드 실패:', error);
+      }
+    };
+    loadData();
+  }, []);
 
   useEffect(() => {
-    if (searchQuery.trim()) {
-      const results = searchFoods(searchQuery);
+    if (searchQuery.trim() && isDataLoaded) {
+      const results = searchFoodByName(searchQuery, 20);
       setSearchResults(results);
       setShowResults(true);
     } else {
       setSearchResults([]);
       setShowResults(false);
     }
-  }, [searchQuery]);
+  }, [searchQuery, isDataLoaded]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -180,21 +200,6 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
-
-  const calculateNutrients = (food: FoodItem, amount: number) => {
-    const ratio = amount / food.servingSize;
-    return {
-      calories: Math.round(food.calories * ratio),
-      protein: Math.round(food.protein * ratio * 10) / 10,
-      carbs: Math.round(food.carbs * ratio * 10) / 10,
-      fat: Math.round(food.fat * ratio * 10) / 10,
-      sodium: Math.round((food.sodium || 0) * ratio * 10) / 10,
-      sugar: Math.round((food.sugar || 0) * ratio * 10) / 10,
-      cholesterol: Math.round((food.cholesterol || 0) * ratio * 10) / 10,
-      saturatedFat: Math.round((food.saturatedFat || 0) * ratio * 10) / 10,
-      transFat: Math.round((food.transFat || 0) * ratio * 10) / 10
-    };
-  };
 
   // 영양성분 입력 검증 함수
   const validateNutritionInputs = () => {
@@ -235,15 +240,39 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
     return true;
   };
 
-  const handleFoodSelect = (food: FoodItem) => {
-    const nutrients = calculateNutrients(food, food.servingSize);
+  const handleFoodSelect = (food: FoodNutrition) => {
+    const nutrients = calculateFoodNutrients(food, food.servingSize);
+    
+    // mealData 업데이트
     setMealData(prev => ({
       ...prev,
       name: food.name,
       amount: food.servingSize,
       foodId: food.id,
-      ...nutrients
+      calories: nutrients.calories,
+      protein: nutrients.protein,
+      carbs: nutrients.carbs,
+      fat: nutrients.fat,
+      sodium: nutrients.sodium,
+      sugar: nutrients.sugar,
+      cholesterol: nutrients.cholesterol,
+      saturatedFat: nutrients.saturatedFat,
+      transFat: nutrients.transFat
     }));
+
+    // nutritionInputs 업데이트 (입력 필드에 자동으로 값이 들어가도록)
+    setNutritionInputs({
+      calories: nutrients.calories.toString(),
+      protein: nutrients.protein.toString(),
+      carbs: nutrients.carbs.toString(),
+      fat: nutrients.fat.toString(),
+      sodium: nutrients.sodium.toString(),
+      sugar: nutrients.sugar.toString(),
+      cholesterol: nutrients.cholesterol.toString(),
+      saturatedFat: nutrients.saturatedFat.toString(),
+      transFat: nutrients.transFat.toString()
+    });
+
     setSearchQuery('');
     setShowResults(false);
   };
@@ -331,7 +360,7 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
     try {
       if (initialMeal) {
         // 수정 모드
-        const { data, error } = await api.meals.updateMeal(parseInt(initialMeal.id), backendMealData);
+        const { error } = await api.meals.updateMeal(parseInt(initialMeal.id), backendMealData);
         if (error) {
           setValidationError(`식사 수정 실패: ${error}`);
           return;
@@ -339,7 +368,7 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
         console.log('✅ 식사 수정 성공');
       } else {
         // 추가 모드
-        const { data, error } = await api.meals.addMeal(backendMealData, 1 as any); // user_id: 1
+        const { error } = await api.meals.addMeal(backendMealData, 1 as any); // user_id: 1
         if (error) {
           setValidationError(`식사 추가 실패: ${error}`);
           return;
@@ -452,14 +481,40 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
                   placeholder="0"
                   onChange={(e) => {
                     const newAmount = Number(e.target.value);
-                    const selectedFood = searchResults.find(food => food.id === mealData.foodId);
-                    if (selectedFood) {
-                      const nutrients = calculateNutrients(selectedFood, newAmount);
-                      setMealData(prev => ({
-                        ...prev,
-                        amount: newAmount,
-                        ...nutrients
-                      }));
+                    // foodService에서 선택된 음식을 찾기
+                    if (mealData.foodId && isDataLoaded) {
+                      const selectedFood = getFoodById(mealData.foodId);
+                      if (selectedFood) {
+                        const nutrients = calculateFoodNutrients(selectedFood, newAmount);
+                        setMealData(prev => ({
+                          ...prev,
+                          amount: newAmount,
+                          calories: nutrients.calories,
+                          protein: nutrients.protein,
+                          carbs: nutrients.carbs,
+                          fat: nutrients.fat,
+                          sodium: nutrients.sodium,
+                          sugar: nutrients.sugar,
+                          cholesterol: nutrients.cholesterol,
+                          saturatedFat: nutrients.saturatedFat,
+                          transFat: nutrients.transFat
+                        }));
+                        // nutritionInputs도 업데이트
+                        setNutritionInputs(prev => ({
+                          ...prev,
+                          calories: nutrients.calories.toString(),
+                          protein: nutrients.protein.toString(),
+                          carbs: nutrients.carbs.toString(),
+                          fat: nutrients.fat.toString(),
+                          sodium: nutrients.sodium.toString(),
+                          sugar: nutrients.sugar.toString(),
+                          cholesterol: nutrients.cholesterol.toString(),
+                          saturatedFat: nutrients.saturatedFat.toString(),
+                          transFat: nutrients.transFat.toString()
+                        }));
+                      } else {
+                        setMealData(prev => ({ ...prev, amount: newAmount }));
+                      }
                     } else {
                       setMealData(prev => ({ ...prev, amount: newAmount }));
                     }
