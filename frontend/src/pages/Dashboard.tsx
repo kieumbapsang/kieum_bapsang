@@ -64,16 +64,13 @@ const pieChartVariants: Variants = {
   }
 };
 
-// 연령 → 연령대 문자열 매핑
+// 연령 → 연령대 문자열 매핑 (0-19세만 지원)
 const getAgeGroup = (age: number): string => {
   if (age <= 2) return '1-2세';
   if (age <= 5) return '3-5세';
   if (age <= 11) return '6-11세';
   if (age <= 18) return '12-18세';
-  if (age <= 29) return '19-29세';
-  if (age <= 49) return '30-49세';
-  if (age <= 64) return '50-64세';
-  return '65세 이상';
+  return '19세'; // 19세만 별도 처리
 };
 
 // 숫자 포맷터 (천 단위 구분)
