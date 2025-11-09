@@ -398,12 +398,8 @@ export const NutritionAnalysisPage: React.FC = () => {
         {/* 영양소 비교 분석 */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg">
-              영양소 섭취량 비교 분석 ({selectedDate.toLocaleDateString('ko-KR', { 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-              })} 기준)
+            <CardTitle className="text-lg pb-2">
+              오늘의 영양소 섭취량 비교
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -484,16 +480,6 @@ export const NutritionAnalysisPage: React.FC = () => {
                           <td className="text-right py-3 px-4 text-gray-700 text-sm">
                             {item.average.toLocaleString()}
                           </td>
-                          {/* <td className="text-right py-3 px-4">
-                            <span className={`font-medium text-sm ${item.difference >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              {item.difference >= 0 ? '+' : ''}{item.difference.toLocaleString()}
-                            </span>
-                          </td>
-                          <td className="text-right py-3 px-4">
-                            <span className={`font-medium text-sm ${parseFloat(item.percentage) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              {parseFloat(item.percentage) >= 0 ? '+' : ''}{item.percentage}%
-                            </span>
-                          </td> */}
                           <td className="text-center py-3 px-4">
                             <span className={`inline-flex items-center px-2 py-1 rounded-full text-sm font-medium ${getStatusColor(item.status)}`}>
                               {getStatusIcon(item.status)} {item.status}
@@ -524,7 +510,7 @@ export const NutritionAnalysisPage: React.FC = () => {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">
-              영양소 분석
+              주간 영양소 섭취 현황
             </CardTitle>
           </CardHeader>
           <CardContent>
