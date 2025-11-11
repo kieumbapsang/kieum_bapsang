@@ -387,11 +387,13 @@ export const NutritionAnalysisPage: React.FC = () => {
     let status = '적정';
     
     if (isLimitBased) {
-      // 미만 기준: 기준값보다 작으면 적정, 크거나 같으면 과다
+      // 미만 기준: 0이면 부족, 기준값보다 작으면 적정, 크거나 같으면 과다
       if (avg > 0) {
         percentage = Math.round((value / avg) * 100);
       }
-      if (value < avg) {
+      if (value === 0) {
+        status = '부족';
+      } else if (value < avg) {
         status = '적정';
       } else {
         status = '과다';
