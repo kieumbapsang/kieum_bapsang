@@ -327,43 +327,85 @@ export const NutritionAnalysisPage: React.FC = () => {
     const propertyName = nutrientMap[nutrient];
     const value = propertyName ? (todayNutrition[propertyName] || 0) : 0;
     
-    // Excel 파일에서 가져온 연령대별 평균 섭취량 가져오기
-    const excelNutrientNames = excelNutrientMap[nutrient] || [nutrient];
+    // 포화지방, 트랜스지방, 콜레스테롤은 연령대별 고정 기준값 사용
+    const userAge = userProfile?.age || 0;
     let avg = 0;
+    let isLimitBased = false;
     
-    if (averageByAgeGroup && averageByAgeGroup.length > 0) {
-      // 여러 가능한 이름으로 찾기
-      for (const name of excelNutrientNames) {
-        const found = averageByAgeGroup.find((a: any) => 
-          a.nutrient_name === name || 
-          a.nutrient_name?.includes(name) ||
-          name.includes(a.nutrient_name)
-        );
-        if (found) {
-          avg = found.average_value || 0;
-          break;
-        }
-      }
+    if (nutrient === '포화지방' || nutrient === '트랜스지방' || nutrient === '콜레스테롤') {
+      isLimitBased = true;
       
-      // 찾지 못한 경우 디버깅
-      if (avg === 0 && value > 0) {
-        console.warn(`${nutrient}의 평균값을 찾을 수 없습니다.`, {
-          nutrient,
-          excelNutrientNames,
-          availableNames: averageByAgeGroup.map((a: any) => a.nutrient_name)
-        });
+      if (nutrient === '포화지방') {
+        if (userAge <= 2) {
+          avg = 0;
+        } else if (userAge <= 18) {
+          avg = 8; 
+        } else if (userAge === 19) {
+          avg = 7; 
+        } else {
+          avg = 7; 
+        }
+      } else if (nutrient === '트랜스지방') {
+        if (userAge <= 2) {
+          avg = 0;
+        } else {
+          avg = 1; // (18세까지, 19세 모두 동일)
+        }
+      } else if (nutrient === '콜레스테롤') {
+        avg = 300; // (19세 이상 기준)
+      }
+    } else {
+      const excelNutrientNames = excelNutrientMap[nutrient] || [nutrient];
+      
+      if (averageByAgeGroup && averageByAgeGroup.length > 0) {
+        // 여러 가능한 이름으로 찾기
+        for (const name of excelNutrientNames) {
+          const found = averageByAgeGroup.find((a: any) => 
+            a.nutrient_name === name || 
+            a.nutrient_name?.includes(name) ||
+            name.includes(a.nutrient_name)
+          );
+          if (found) {
+            avg = found.average_value || 0;
+            break;
+          }
+        }
+        
+        // 찾지 못한 경우 디버깅
+        if (avg === 0 && value > 0) {
+          console.warn(`${nutrient}의 평균값을 찾을 수 없습니다.`, {
+            nutrient,
+            excelNutrientNames,
+            availableNames: averageByAgeGroup.map((a: any) => a.nutrient_name)
+          });
+        }
       }
     }
     
     // percentage와 status 계산
-    const percentage = avg > 0 ? Math.round((value / avg) * 100) : 0;
+    let percentage = 0;
     let status = '적정';
-    if (percentage < 80) {
-      status = '부족';
-    } else if (percentage > 100) {
-      status = '과다';
+    
+    if (isLimitBased) {
+      // 미만 기준: 기준값보다 작으면 적정, 크거나 같으면 과다
+      if (avg > 0) {
+        percentage = Math.round((value / avg) * 100);
+      }
+      if (value < avg) {
+        status = '적정';
+      } else {
+        status = '과다';
+      }
     } else {
-      status = '적정';
+      // 일반 영양소: 평균 대비 비율로 판단
+      percentage = avg > 0 ? Math.round((value / avg) * 100) : 0;
+      if (percentage < 80) {
+        status = '부족';
+      } else if (percentage > 100) {
+        status = '과다';
+      } else {
+        status = '적정';
+      }
     }
     
     return { user: value, average: avg, status, percentage };
@@ -629,8 +671,8 @@ export const NutritionAnalysisPage: React.FC = () => {
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg font-bold pb-2">주간 영양소 섭취 현황</CardTitle>
-            <div className="text-sm text-gray-600">
-              기준: {format(weekStart, 'M월 d일', { locale: ko })} ~ {format(weekEnd, 'M월 d일', { locale: ko })}
+            <div className="text-sm text-gray-600 pb-2">
+              {format(weekStart, 'M월 d일', { locale: ko })} ~ {format(weekEnd, 'M월 d일', { locale: ko })}
             </div>
           </div>
         </CardHeader>
