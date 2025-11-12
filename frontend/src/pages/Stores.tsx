@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { KakaoMap, Store } from '../components/ui/kakaoMap';
 import { useUser } from '../contexts/UserContext';
-import { getStoresByDistrict } from '../services/storeService';
+import { getStoresByDistrict, getAllStores } from '../services/storeService';
 import { api } from '../api/client';
 
 type CityKey = '서울특별시' | '부산광역시' | '대구광역시' | '인천광역시' | '광주광역시' | '대전광역시' | '울산광역시' | '세종특별자치시' | '경기도' | '강원특별자치도' | '충청북도' | '충청남도' | '경상남도' | '경상북도' | '전북특별자치도';
@@ -12,6 +12,17 @@ const isValidTel = (tel: string | undefined): boolean => {
   if (!tel) return false;
   const cleaned = tel.trim().replace(/[-\s]/g, '');
   return cleaned !== '0000000000' && !/^0{3}[- ]?0{4}[- ]?0{4}$/.test(tel.trim());
+};
+
+// 편의점 확인
+const isConvenienceStore = (storeName: string): boolean => {
+  const name = storeName.toLowerCase();
+  return name.includes('cu') || 
+         name.includes('씨유') || 
+         name.includes('세븐일레븐') ||
+         name.includes('gs25') ||
+         name.includes('지에스25') ||
+         name.includes('이마트24');
 };
 
 export const StoresPage: React.FC = () => {
@@ -317,11 +328,54 @@ export const StoresPage: React.FC = () => {
       console.log('매장 데이터 로드 시작:', { 
         selectedCity, 
         selectedDistricts,
-        districtsLength: selectedDistricts.length 
+        districtsLength: selectedDistricts.length,
+        initialCity 
       });
       setLoading(true);
       try {
-        const stores = await getStoresByDistrict(selectedCity, selectedDistricts);
+        // 사용자 거주지 시도와 선택된 시도 비교
+        const isUserCity = initialCity === selectedCity;
+        console.log('시도 비교:', { 
+          initialCity, 
+          selectedCity, 
+          isUserCity 
+        });
+
+        let stores: Store[] = [];
+
+        if (isUserCity) {
+          // 거주지 시도와 일치하면 해당 지역의 모든 가맹점 조회
+          if (selectedDistricts.length > 0) {
+            stores = await getStoresByDistrict(selectedCity, selectedDistricts);
+          } else {
+            console.log('시군구가 선택되지 않아 매장 데이터 로드 건너뜀');
+            setAllStores([]);
+            setLoading(false);
+            return;
+          }
+        } else {
+          // 거주지 시도와 일치하지 않으면 편의점만 조회
+          if (selectedDistricts.length > 0) {
+            // 시군구가 선택된 경우: 해당 시군구의 편의점만 조회
+            console.log('거주지 시도와 다르고 시군구가 선택됨 - 해당 시군구의 편의점만 조회');
+            const districtStores = await getStoresByDistrict(selectedCity, selectedDistricts);
+            stores = districtStores.filter(store => isConvenienceStore(store.name));
+            console.log('시군구 편의점 필터링 완료:', { 
+              totalStores: districtStores.length,
+              convenienceStores: stores.length
+            });
+          } else {
+            // 시군구가 선택되지 않은 경우: 전국의 편의점만 조회
+            console.log('거주지 시도와 다르고 시군구 미선택 - 전국 편의점만 조회');
+            const allStoresData = await getAllStores();
+            stores = allStoresData.filter(store => isConvenienceStore(store.name));
+            console.log('전국 편의점 필터링 완료:', { 
+              totalStores: allStoresData.length,
+              convenienceStores: stores.length
+            });
+          }
+        }
+
         console.log('매장 데이터 로드 완료:', { 
           city: selectedCity, 
           districts: selectedDistricts,
@@ -337,14 +391,14 @@ export const StoresPage: React.FC = () => {
     };
 
     // 지역이 선택된 경우에만 매장 데이터 로드
-    if (selectedDistricts.length > 0) {
+    if (selectedDistricts.length > 0 || initialCity !== selectedCity) {
       loadStores();
     } else {
       console.log('시군구가 선택되지 않아 매장 데이터 로드 건너뜀');
       setAllStores([]);
       setLoading(false);
     }
-  }, [isAddressLoaded, selectedCity, selectedDistricts]);
+  }, [isAddressLoaded, selectedCity, selectedDistricts, initialCity]);
 
   // 선택된 지역에 따라 필터링된 매장
   const filteredStores = useMemo(() => {
@@ -482,7 +536,10 @@ export const StoresPage: React.FC = () => {
                 </div>
               ) : filteredStores.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
-                  선택한 지역에 매장이 없습니다.
+                  {initialCity === selectedCity 
+                    ? `선택한 지역(${selectedCity} ${selectedDistricts.join(', ')})에 매장이 없습니다.`
+                    : `선택한 지역(${selectedCity} ${selectedDistricts.join(', ')})에 편의점이 없습니다.`
+                  }
                 </div>
               ) : (
                 filteredStores.map((store) => (
