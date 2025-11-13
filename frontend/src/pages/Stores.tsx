@@ -643,6 +643,15 @@ export const StoresPage: React.FC = () => {
                 </div>
               )}
 
+              {/* 안내 문구 */}
+              {initialCity && initialCity !== tempSelectedCity && (
+                <div className="mb-6 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-sm text-yellow-800">
+                    ⚠️ 거주지 외 지역에서는 편의점 목록만 표시됩니다.
+                  </p>
+                </div>
+              )}
+
               {/* 버튼들 */}
               <div className="flex gap-3">
                 <button
