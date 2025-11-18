@@ -102,8 +102,8 @@ export const LoginForm: React.FC = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <h1 className="text-2xl font-bold text-gray-900">로그인</h1>
-        <p className="mt-2 text-gray-600">키움밥상에 오신 것을 환영합니다</p>
+        {/* <h1 className="text-2xl font-bold text-gray-900">로그인</h1>
+        <p className="mt-2 text-gray-600">키움밥상에 오신 것을 환영합니다</p> */}
       </motion.div>
 
       <motion.div

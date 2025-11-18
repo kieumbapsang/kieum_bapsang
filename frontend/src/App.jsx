@@ -4,8 +4,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { UserProvider } from './contexts/UserContext';
 import { AddMealModal } from './features/meals/components/AddMealModal';
+import { useModeStore } from './stores/useModeStore';
 
-// 페이지 컴포넌트 import
+// Default Mode Pages
 import { StartPage } from './pages/Start';
 import { DashboardPage } from './pages/Dashboard';
 import { LoginPage } from './pages/Login';
@@ -17,7 +18,47 @@ import { SettingsPage } from './pages/Settings';
 import { MealsPage } from './pages/Meals';
 import { StoresPage } from './pages/Stores';
 
-// 레이아웃 컴포넌트
+// Kids Mode Pages
+import { HomePage } from './pages/HomePage';
+import { GrowthPage } from './pages/GrowthPage';
+import { ProfilePage } from './pages/ProfilePage';
+import { StorePage as KidsStorePage } from './pages/StorePage';
+
+// Kids Mode Components
+import { ChildHeader } from './components/ChildHeader';
+import { ChildBottomNav } from './components/ChildBottomNav';
+
+/**
+ * Kids Mode 레이아웃 컴포넌트
+ * - ChildHeader와 ChildBottomNav 사용
+ * - 키즈 친화적인 UI/UX
+ */
+const KidsLayout = ({ children }) => {
+  const location = useLocation();
+
+  return (
+    <div className="min-h-screen flex flex-col kids-mode">
+      {/* Kids Mode 헤더 */}
+      <ChildHeader />
+
+      {/* 메인 콘텐츠 영역 */}
+      <main className="flex-grow pt-4 pb-28 px-4">
+        <div className="max-w-lg mx-auto">
+          {children}
+        </div>
+      </main>
+
+      {/* Kids Mode 하단 네비게이션 */}
+      <ChildBottomNav />
+    </div>
+  );
+};
+
+/**
+ * Default Mode 레이아웃 컴포넌트
+ * - 상단 헤더와 하단 네비게이션 바를 포함
+ * - 모든 메인 페이지에 공통 적용
+ */
 const Layout = ({ children }) => {
   const [isMealModalOpen, setIsMealModalOpen] = useState(false);
   const location = useLocation();
@@ -151,6 +192,28 @@ const Layout = ({ children }) => {
   );
 };
 
+/**
+ * 모드별 라우트 래퍼 컴포넌트
+ * useModeStore를 사용해서 Kids Mode일 때와 Default Mode일 때 다른 페이지 렌더링
+ */
+const ModeAwareRoute = ({ kidsComponent: KidsComponent, defaultComponent: DefaultComponent }) => {
+  const { isKidsMode } = useModeStore();
+
+  if (isKidsMode) {
+    return (
+      <KidsLayout>
+        <KidsComponent />
+      </KidsLayout>
+    );
+  }
+
+  return (
+    <Layout>
+      <DefaultComponent />
+    </Layout>
+  );
+};
+
 // QueryClient 생성
 const queryClient = new QueryClient();
 const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
@@ -163,15 +226,45 @@ function App() {
           <BrowserRouter>
             <Routes>
             <Route path="/" element={<StartPage />} />
-            <Route path="/home" element={<Layout><DashboardPage /></Layout>} />
-            <Route path="/meals" element={<Layout><MealsPage /></Layout>} />
-            <Route path="/stats" element={<Layout><NutritionAnalysisPage /></Layout>} />
-            <Route path="/calendar" element={<Layout><CalendarPage /></Layout>} />
-            <Route path="/stores" element={<Layout><StoresPage /></Layout>} />
-            <Route path="/mypage" element={<Layout><MyPage /></Layout>} />
             <Route path="/login" element={<LoginPage />} />
-            <Route path="/settings" element={<Layout><SettingsPage /></Layout>} />
             <Route path="/additional-info" element={<AdditionalInfoPage />} />
+
+            {/* 모드별 라우팅 - 홈 페이지 */}
+            <Route
+              path="/home"
+              element={<ModeAwareRoute kidsComponent={HomePage} defaultComponent={DashboardPage} />}
+            />
+
+            {/* 모드별 라우팅 - 성장/영양분석 페이지 */}
+            <Route
+              path="/stats"
+              element={<ModeAwareRoute kidsComponent={GrowthPage} defaultComponent={NutritionAnalysisPage} />}
+            />
+
+            {/* Kids Mode 전용 - 성장기록 페이지 */}
+            <Route
+              path="/growth"
+              element={<ModeAwareRoute kidsComponent={GrowthPage} defaultComponent={NutritionAnalysisPage} />}
+            />
+
+            {/* 모드별 라우팅 - 가맹점 찾기 페이지 */}
+            <Route
+              path="/stores"
+              element={<ModeAwareRoute kidsComponent={KidsStorePage} defaultComponent={StoresPage} />}
+            />
+
+            {/* 모드별 라우팅 - 내정보 페이지 */}
+            <Route
+              path="/mypage"
+              element={<ModeAwareRoute kidsComponent={ProfilePage} defaultComponent={MyPage} />}
+            />
+
+            {/* Default Mode 전용 페이지 */}
+            <Route path="/meals" element={<Layout><MealsPage /></Layout>} />
+            <Route path="/calendar" element={<Layout><CalendarPage /></Layout>} />
+
+            {/* 설정 페이지 (양쪽 모드 공통, 하지만 Default Layout 사용) */}
+            <Route path="/settings" element={<Layout><SettingsPage /></Layout>} />
           </Routes>
         </BrowserRouter>
         </UserProvider>

@@ -54,6 +54,7 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
   const [ocrError, setOcrError] = useState<string>('');
   const [validationError, setValidationError] = useState<string>('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [amountUnit, setAmountUnit] = useState<string>('g');
 
   
   // 영양성분 입력 필드용 별도 상태 (문자열로 처리)
@@ -129,24 +130,30 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
             transFat: processNutritionValue(nutrition.트랜스지방),
           });
 
-          // 총 내용량을 양(g) 필드에 자동 입력
+          // 총 내용량을 양 필드에 자동 입력 (인식한 단위에 따라 처리)
           if (nutrition.총내용량 && typeof nutrition.총내용량 === 'object' && nutrition.총내용량.amount) {
             const totalContent = nutrition.총내용량;
             let amountValue = totalContent.amount;
+            let recognizedUnit = totalContent.unit || 'g';
             
-            // 단위 변환 (ml → g, kg → g, L → ml → g)
-            if (totalContent.unit === 'ml' || totalContent.unit === 'mL' || totalContent.unit === 'ML') {
-              // ml는 g과 비슷하게 처리 (1ml ≈ 1g)
+            // 단위 정규화
+            if (recognizedUnit === 'ml' || recognizedUnit === 'mL' || recognizedUnit === 'ML') {
+              recognizedUnit = 'ml';
               amountValue = totalContent.amount;
-            } else if (totalContent.unit === 'kg') {
-              amountValue = totalContent.amount * 1000; // kg → g
-            } else if (totalContent.unit === 'L' || totalContent.unit === 'l') {
-              amountValue = totalContent.amount * 1000; // L → ml → g (1L ≈ 1000g)
+            } else if (recognizedUnit === 'kg') {
+              
+              amountValue = totalContent.amount * 1000;
+              recognizedUnit = 'g';
+            } else if (recognizedUnit === 'L' || recognizedUnit === 'l') {
+              amountValue = totalContent.amount * 1000;
+              recognizedUnit = 'ml';
+            } else {
+              recognizedUnit = 'g';
             }
-            // g 단위는 그대로 사용
+            setAmountUnit(recognizedUnit);
             
             setMealData(prev => ({ ...prev, amount: Math.round(amountValue) }));
-            console.log(`📦 총 내용량을 양(g) 필드에 입력: ${Math.round(amountValue)}g (원본: ${totalContent.amount}${totalContent.unit || 'g'})`);
+            console.log(`📦 총 내용량을 양(${recognizedUnit}) 필드에 입력: ${Math.round(amountValue)}${recognizedUnit} (원본: ${totalContent.amount}${totalContent.unit || 'g'})`);
           }
         }
       } else {
@@ -273,6 +280,9 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
       transFat: nutrients.transFat.toString()
     });
 
+    // 기본 단위 g
+    setAmountUnit('g');
+
     setSearchQuery('');
     setShowResults(false);
   };
@@ -285,6 +295,7 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
       setIsProcessingOCR(false);
       setOcrError('');
       setValidationError('');
+      setAmountUnit('g');
       setNutritionInputs({
         calories: '',
         protein: '',
@@ -472,7 +483,7 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
             </div>
             <div>
               <label htmlFor="amount" className="block text-sm font-medium text-gray-700">
-                양 (g)
+                양 ({amountUnit || 'g'})
               </label>
                 <input
                   type="number"

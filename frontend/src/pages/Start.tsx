@@ -13,11 +13,11 @@ export const StartPage: React.FC = () => {
           <img src="/favicon.ico" alt="키움밥상 로고" className="w-full h-full object-contain" />
         </div>
         <h1 className="text-2xl font-bold text-center mb-3">
-          우리 아이 <span className="text-primary-500">건강한 식습관</span>
+          나의 <span className="text-primary-500">성장을 위한 식습관</span>
         </h1>
         <p className="text-neutral-600 text-center mb-12 text-base">
           이 앱은 아동복지카드 사용자를 위한 앱입니다.<br />
-          우리 아이의 건강한 성장을 위해 식단 관리를 시작하세요
+          건강한 성장을 위해 식단 관리를 시작하세요.
         </p>
         <div className="w-full max-w-sm">
           <Button
