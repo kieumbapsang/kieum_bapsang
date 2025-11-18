@@ -143,7 +143,7 @@ export const ModeSwitch: React.FC<ModeSwitchProps> = ({ className }) => {
    * 다이얼로그 설명 텍스트
    */
   const dialogDescription = useMemo(
-    () => `정말 ${targetModeName}(으)로 변경하시겠습니까?`,
+    () => `키즈 모드(${targetModeName})로 변경하시겠습니까?`,
     [targetModeName]
   );
 

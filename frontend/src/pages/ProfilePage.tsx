@@ -323,7 +323,7 @@ export function ProfilePage({ onLogout }: ProfilePageProps) {
         open={isModeDialogOpen}
         onOpenChange={setIsModeDialogOpen}
         title="기본 모드로 변경"
-        description="심플한 기본 모드로 변경됩니다. 정보를 좀 더 깔끔하게 볼 수 있어요."
+        description="정보를 깔끔하게 볼 수 있는 기본모드로 변경됩니다."
         onConfirm={handleModeChange}
         onCancel={handleModeCancel}
         confirmText="변경"
