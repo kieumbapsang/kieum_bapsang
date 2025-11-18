@@ -42,7 +42,11 @@ export const useMeals = () => {
   // 특정 날짜의 식사 목록을 API에서 가져오기
   const fetchMealsByDate = useCallback(async (date: Date) => {
     const dateString = toKoreanDateString(date);
-    const userId = 1; // 임시로 1번 사용자 사용
+    const userId = localStorage.getItem('user_id') ? parseInt(localStorage.getItem('user_id')!) : null;
+    if (!userId) {
+      console.warn('사용자 ID가 없습니다.');
+      return;
+    }
     console.log(`🔍 식사 목록 조회 시작: ${dateString}, user_id: ${userId}`);
     setLoading(true);
     setError(null);

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
@@ -274,6 +274,7 @@ const generateAlerts = (summary: any, averageNutritionByAge?: any[] | null, user
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [nearbyStores, setNearbyStores] = useState<Store[]>([]);
   const [storeLoading, setStoresLoading] = useState(true);
 
@@ -281,6 +282,18 @@ export const DashboardPage: React.FC = () => {
     queryKey: ['dashboard'],
     queryFn: fetchDashboardData,
   });
+
+  // 키즈 모드에서 데이터 변경 시 React Query 캐시 무효화
+  useEffect(() => {
+    const handleMealDataChanged = () => {
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    };
+
+    window.addEventListener('mealDataChanged', handleMealDataChanged);
+    return () => {
+      window.removeEventListener('mealDataChanged', handleMealDataChanged);
+    };
+  }, [queryClient]);
 
   // 거주지별 가맹점 정보 상위 3개
   const parseAddress = (address: string): { city: string, district: string } => {

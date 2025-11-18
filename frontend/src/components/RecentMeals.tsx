@@ -21,6 +21,9 @@ export interface MealRecord {
   calories: number;
   grams: number;
   date?: string; // YYYY-MM-DD 형식의 날짜 (선택적)
+  carbs?: number; // 탄수화물 (g)
+  protein?: number; // 단백질 (g)
+  fat?: number; // 지방 (g)
 }
 
 const initialMeals: MealRecord[] = [

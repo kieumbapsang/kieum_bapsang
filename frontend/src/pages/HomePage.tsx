@@ -1,11 +1,14 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Character } from '../components/Character';
 import { Button } from '../components/ui/Button';
+import { Card } from '../components/ui/Card';
 import { Plus } from 'lucide-react';
 import { getRandomTip } from '../utils/randomTips';
 import { RecentMeals, MealRecord } from '../components/RecentMeals';
 import { AchievementSection } from '../components/AchievementSection';
 import { ManualInputModal } from '../components/modals/ManualInputModal';
+import { api } from '../api/client';
+import { getKoreanDate, toKoreanDateString } from '../lib/utils';
 
 /**
  * HomePage Props 인터페이스
@@ -13,6 +16,34 @@ import { ManualInputModal } from '../components/modals/ManualInputModal';
 export interface HomePageProps {
   onNavigateToStore?: () => void;
 }
+
+/**
+ * API 응답을 MealRecord로 변환
+ */
+const convertApiMealToMealRecord = (apiMeal: any): MealRecord => {
+  const createdTime = new Date(apiMeal.created_at);
+  const timeString = createdTime.toLocaleTimeString('ko-KR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+
+  const intakeDate = apiMeal.intake_date ? 
+    (typeof apiMeal.intake_date === 'string' ? apiMeal.intake_date : apiMeal.intake_date.split('T')[0]) :
+    toKoreanDateString(getKoreanDate());
+
+  return {
+    id: apiMeal.id.toString(),
+    time: timeString,
+    foodName: apiMeal.food_name,
+    calories: apiMeal.nutrition_data?.calories || 0,
+    grams: apiMeal.nutrition_data?.amount || 0,
+    date: intakeDate,
+    carbs: apiMeal.nutrition_data?.carbs || 0,
+    protein: apiMeal.nutrition_data?.protein || 0,
+    fat: apiMeal.nutrition_data?.fat || 0,
+  };
+};
 
 /**
  * HomePage 컴포넌트 - 키즈모드 메인 페이지
@@ -23,69 +54,149 @@ export interface HomePageProps {
  * - RecentMeals (식사 기록)
  * - AchievementSection (성취 배지)
  */
-// 초기 식사 데이터 생성 (테스트용)
-const getInitialMeals = (): MealRecord[] => {
-  const today = new Date();
-  const formatDate = (date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
-  return [
-    {
-      id: "1",
-      time: "12:20",
-      foodName: "김밥",
-      calories: 320,
-      grams: 250,
-      date: formatDate(today), // 오늘
-    },
-    {
-      id: "2",
-      time: "08:30",
-      foodName: "우유",
-      calories: 130,
-      grams: 200,
-      date: formatDate(today), // 오늘
-    },
-    {
-      id: "3",
-      time: "19:00",
-      foodName: "라면",
-      calories: 500,
-      grams: 400,
-      date: formatDate(today), // 오늘
-    },
-    {
-      id: "4",
-      time: "14:15",
-      foodName: "사과",
-      calories: 95,
-      grams: 180,
-      date: formatDate(today), // 오늘
-    },
-  ];
-};
-
-const initialMeals: MealRecord[] = getInitialMeals();
-
 export const HomePage: React.FC<HomePageProps> = ({ onNavigateToStore }) => {
   const [isManualInputOpen, setIsManualInputOpen] = useState(false);
-  const [meals, setMeals] = useState<MealRecord[]>(initialMeals);
+  const [meals, setMeals] = useState<MealRecord[]>([]);
+  const [loading, setLoading] = useState(true);
   const randomTip = useMemo(() => getRandomTip(), []);
 
-  const handleAddMeal = (meal: MealRecord) => {
-    setMeals([meal, ...meals]);
+  // 실제 식사 데이터 가져오기
+  const fetchMeals = async () => {
+    try {
+      setLoading(true);
+      const userId = localStorage.getItem('user_id');
+      if (!userId) {
+        console.warn('사용자 ID가 없습니다.');
+        setMeals([]);
+        return;
+      }
+
+      const today = toKoreanDateString(getKoreanDate());
+      const { data, error } = await api.meals.getMealsByDate(today, parseInt(userId) as any);
+
+      if (error) {
+        console.error('식사 데이터 가져오기 실패:', error);
+        setMeals([]);
+        return;
+      }
+
+      if (data && data.meals) {
+        const convertedMeals = data.meals.map(convertApiMealToMealRecord);
+        // 최신순으로 정렬
+        convertedMeals.sort((a: MealRecord, b: MealRecord) => {
+          const timeA = a.time.split(':').map(Number);
+          const timeB = b.time.split(':').map(Number);
+          if (timeA[0] !== timeB[0]) return timeB[0] - timeA[0];
+          return timeB[1] - timeA[1];
+        });
+        setMeals(convertedMeals);
+      } else {
+        setMeals([]);
+      }
+    } catch (error) {
+      console.error('식사 데이터 가져오기 중 오류:', error);
+      setMeals([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleUpdateMeal = (updatedMeal: MealRecord) => {
-    setMeals(meals.map(meal => meal.id === updatedMeal.id ? updatedMeal : meal));
+  useEffect(() => {
+    fetchMeals();
+  }, []);
+
+  const handleAddMeal = async (meal: MealRecord) => {
+    try {
+      const userId = localStorage.getItem('user_id');
+      if (!userId) {
+        console.error('사용자 ID가 없습니다.');
+        return;
+      }
+
+      // API 형식으로 변환 (탄단지 정보 포함)
+      const mealData = {
+        food_name: meal.foodName,
+        nutrition_data: {
+          amount: meal.grams,
+          calories: meal.calories,
+          protein: meal.protein || 0,
+          carbs: meal.carbs || 0,
+          fat: meal.fat || 0,
+        },
+        intake_date: meal.date || toKoreanDateString(getKoreanDate()),
+      };
+
+      const { data, error } = await api.meals.addMeal(mealData, parseInt(userId) as any);
+
+      if (error) {
+        console.error('식사 추가 실패:', error);
+        return;
+      }
+
+      // 식사 목록 다시 불러오기
+      await fetchMeals();
+      
+      // 기본 모드에 데이터 변경 알림
+      window.dispatchEvent(new CustomEvent('mealDataChanged', { 
+        detail: { action: 'add', date: meal.date || toKoreanDateString(getKoreanDate()) }
+      }));
+    } catch (error) {
+      console.error('식사 추가 중 오류:', error);
+    }
   };
 
-  const handleDeleteMeal = (id: string) => {
-    setMeals(meals.filter(meal => meal.id !== id));
+  const handleUpdateMeal = async (updatedMeal: MealRecord) => {
+    try {
+      const mealData = {
+        food_name: updatedMeal.foodName,
+        nutrition_data: {
+          amount: updatedMeal.grams,
+          calories: updatedMeal.calories,
+          protein: updatedMeal.protein || 0,
+          carbs: updatedMeal.carbs || 0,
+          fat: updatedMeal.fat || 0,
+        },
+      };
+
+      const { error } = await api.meals.updateMeal(parseInt(updatedMeal.id), mealData);
+
+      if (error) {
+        console.error('식사 수정 실패:', error);
+        return;
+      }
+
+      // 식사 목록 다시 불러오기
+      await fetchMeals();
+      
+      // 기본 모드에 데이터 변경 알림
+      window.dispatchEvent(new CustomEvent('mealDataChanged', { 
+        detail: { action: 'update', date: updatedMeal.date || toKoreanDateString(getKoreanDate()) }
+      }));
+    } catch (error) {
+      console.error('식사 수정 중 오류:', error);
+    }
+  };
+
+  const handleDeleteMeal = async (id: string) => {
+    try {
+      const { error } = await api.meals.deleteMeal(parseInt(id));
+
+      if (error) {
+        console.error('식사 삭제 실패:', error);
+        return;
+      }
+
+      // 식사 목록 다시 불러오기
+      await fetchMeals();
+      
+      // 기본 모드에 데이터 변경 알림
+      const today = toKoreanDateString(getKoreanDate());
+      window.dispatchEvent(new CustomEvent('mealDataChanged', { 
+        detail: { action: 'delete', date: today }
+      }));
+    } catch (error) {
+      console.error('식사 삭제 중 오류:', error);
+    }
   };
 
   return (
@@ -106,12 +217,21 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigateToStore }) => {
       </div>
 
       {/* Recent Meals */}
-      <RecentMeals 
-        meals={meals}
-        onAddMeal={handleAddMeal}
-        onUpdateMeal={handleUpdateMeal}
-        onDeleteMeal={handleDeleteMeal}
-      />
+      {loading ? (
+        <Card className="p-6 border-0 shadow-lg bg-white rounded-3xl">
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mx-auto mb-3"></div>
+            <p className="text-gray-500">식사 데이터를 불러오는 중...</p>
+          </div>
+        </Card>
+      ) : (
+        <RecentMeals 
+          meals={meals}
+          onAddMeal={handleAddMeal}
+          onUpdateMeal={handleUpdateMeal}
+          onDeleteMeal={handleDeleteMeal}
+        />
+      )}
 
       {/* Achievement Badges */}
       <AchievementSection meals={meals} />

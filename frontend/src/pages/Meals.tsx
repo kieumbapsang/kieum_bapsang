@@ -30,6 +30,33 @@ export const MealsPage: React.FC = () => {
     fetchMealsByDate(yesterdayDate);
   }, [selectedDate, fetchMealsByDate]);
 
+  // 키즈 모드에서 데이터 변경 시 데이터 다시 불러오기
+  useEffect(() => {
+    const handleMealDataChanged = (event: CustomEvent) => {
+      const { date } = event.detail;
+      if (date) {
+        const changedDate = new Date(date);
+        fetchMealsByDate(changedDate);
+        
+        // 어제 날짜도 다시 불러오기 (연속 일수 계산을 위해)
+        const yesterdayDate = new Date(changedDate);
+        yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+        fetchMealsByDate(yesterdayDate);
+      } else {
+        // 날짜가 없으면 현재 선택된 날짜와 어제 날짜 다시 불러오기
+        fetchMealsByDate(selectedDate);
+        const yesterdayDate = new Date(selectedDate);
+        yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+        fetchMealsByDate(yesterdayDate);
+      }
+    };
+
+    window.addEventListener('mealDataChanged', handleMealDataChanged as EventListener);
+    return () => {
+      window.removeEventListener('mealDataChanged', handleMealDataChanged as EventListener);
+    };
+  }, [selectedDate, fetchMealsByDate]);
+
   const handleDeleteConfirm = () => {
     if (mealToDelete) {
       const date = selectedDateMeals.includes(mealToDelete) ? selectedDate : yesterday;

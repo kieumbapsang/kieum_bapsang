@@ -61,6 +61,32 @@ export const CalendarPage = () => {
     loadMonthMeals();
   }, [currentDate, fetchMealsByDate]);
 
+  // 키즈 모드에서 데이터 변경 시 데이터 다시 불러오기
+  useEffect(() => {
+    const handleMealDataChanged = (event: CustomEvent) => {
+      const { date } = event.detail;
+      if (date) {
+        const changedDate = new Date(date);
+        // 같은 월이면 해당 날짜 다시 불러오기
+        if (isSameMonth(changedDate, currentDate)) {
+          fetchMealsByDate(changedDate);
+        }
+      } else {
+        // 날짜가 없으면 현재 월의 모든 날짜 다시 불러오기
+        for (const date of calendarDays) {
+          if (isSameMonth(date, currentDate)) {
+            fetchMealsByDate(date);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('mealDataChanged', handleMealDataChanged as EventListener);
+    return () => {
+      window.removeEventListener('mealDataChanged', handleMealDataChanged as EventListener);
+    };
+  }, [currentDate, fetchMealsByDate, calendarDays]);
+
   // 날짜 클릭 핸들러
   const handleDateClick = (date: Date) => {
     setSelectedDate(date);

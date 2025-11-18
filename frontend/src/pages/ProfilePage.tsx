@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Input } from '../components/ui/Input';
+import { api } from '../api/client';
 
 /**
  * ProfilePage Props 인터페이스
@@ -78,21 +79,43 @@ export function ProfilePage({ onLogout }: ProfilePageProps) {
     relationship: '',
   });
 
-  // 더미 데이터 초기화 (userInfo가 비어있을 때만)
+  // 실제 사용자 프로필 정보 가져오기 (항상 API에서 최신 데이터 가져오기)
   useEffect(() => {
-    if (!userInfo.name) {
-      updateUserInfo({
-        name: '신짱구',
-        age: '5',
-        height: '105',
-        weight: '17',
-        guardian: {
-          name: '봉미선',
-          phone: '010-1234-5678',
-          relationship: '엄마',
-        },
-      });
-    }
+    const fetchUserProfile = async () => {
+      try {
+        const userId = localStorage.getItem('user_id');
+        if (!userId) {
+          console.warn('사용자 ID가 없습니다.');
+          return;
+        }
+
+        const { data: userProfile } = await api.user.getProfile(parseInt(userId));
+        
+        if (userProfile) {
+          // API에서 받은 데이터를 userInfo 형식으로 변환
+          updateUserInfo({
+            name: userProfile.username || userProfile.name || '',
+            age: userProfile.age?.toString() || '',
+            height: userProfile.height?.toString() || '',
+            weight: userProfile.weight?.toString() || '',
+            email: userProfile.email || '',
+            address: userProfile.address || '',
+            birthDate: userProfile.birth_date || userProfile.birth || '',
+            guardian: userProfile.protector_name ? {
+              name: userProfile.protector_name || '',
+              phone: userProfile.protector_phone || '',
+              relationship: userProfile.protector_relationship || '',
+            } : undefined,
+          });
+        }
+      } catch (error) {
+        console.error('사용자 프로필 가져오기 실패:', error);
+      }
+    };
+
+    // 항상 API에서 최신 데이터 가져오기
+    fetchUserProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // userInfo가 변경될 때 폼 상태 업데이트
@@ -126,14 +149,35 @@ export function ProfilePage({ onLogout }: ProfilePageProps) {
   const bmi = calculateBMI();
 
   // 프로필 수정 저장
-  const handleProfileSave = () => {
-    updateUserInfo({
-      name: profileForm.name,
-      age: profileForm.age,
-      height: profileForm.height,
-      weight: profileForm.weight,
-    });
-    setIsProfileEditOpen(false);
+  const handleProfileSave = async () => {
+    try {
+      const userId = localStorage.getItem('user_id');
+      if (!userId) {
+        console.error('사용자 ID가 없습니다.');
+        return;
+      }
+
+      // API에 프로필 업데이트 요청
+      const updateData = {
+        username: profileForm.name,
+        age: parseInt(profileForm.age) || null,
+        height: parseFloat(profileForm.height) || null,
+        weight: parseFloat(profileForm.weight) || null,
+      };
+
+      // API 호출 (user.updateProfile이 있다면 사용, 없으면 getProfile 후 수정)
+      // 일단 userInfo만 업데이트하고 나중에 API 추가 가능
+      updateUserInfo({
+        name: profileForm.name,
+        age: profileForm.age,
+        height: profileForm.height,
+        weight: profileForm.weight,
+      });
+      
+      setIsProfileEditOpen(false);
+    } catch (error) {
+      console.error('프로필 저장 실패:', error);
+    }
   };
 
   // 보호자 정보 수정 저장
@@ -158,10 +202,90 @@ export function ProfilePage({ onLogout }: ProfilePageProps) {
     // 다이얼로그만 닫힘
   }, []);
 
-  // 활동 정보 (더미 데이터)
-  const mealRecords = 42;
-  const streakDays = 5;
-  const badges = 12;
+  // 활동 정보 (실제 데이터)
+  const [mealRecords, setMealRecords] = useState(0);
+  const [streakDays, setStreakDays] = useState(0);
+  const [badges, setBadges] = useState(0);
+  const [loadingStats, setLoadingStats] = useState(true);
+
+  // 활동 통계 가져오기
+  useEffect(() => {
+    const fetchActivityStats = async () => {
+      try {
+        setLoadingStats(true);
+        const userId = localStorage.getItem('user_id');
+        if (!userId) {
+          return;
+        }
+
+        // 배지 수 가져오기
+        try {
+          const response = await fetch(`http://localhost:8000/my-badges/count/${userId}`);
+          if (response.ok) {
+            const result = await response.json();
+            if (result.data && typeof result.data.count === 'number') {
+              setBadges(result.data.count);
+            }
+          }
+        } catch (error) {
+          console.warn('배지 수 가져오기 실패:', error);
+          setBadges(0);
+        }
+
+        // 식사 기록 수와 연속 일수 계산
+        try {
+          const today = new Date();
+          let totalMeals = 0;
+          let consecutiveDays = 0;
+          let currentDate = new Date(today);
+          let foundFirstMeal = false;
+          
+          // 최근 30일 동안의 데이터 확인
+          for (let i = 0; i < 30; i++) {
+            const dateString = currentDate.toISOString().split('T')[0];
+            const { data: mealsData } = await api.meals.getMealsByDate(dateString, parseInt(userId) as any);
+            
+            if (mealsData && mealsData.meals) {
+              const dayMealCount = mealsData.meals.length;
+              totalMeals += dayMealCount;
+              
+              // 연속 일수 계산 (오늘부터 역순으로)
+              if (dayMealCount > 0) {
+                if (!foundFirstMeal) {
+                  foundFirstMeal = true;
+                }
+                consecutiveDays++;
+              } else {
+                // 식사가 없는 날이면 연속이 끊김
+                if (foundFirstMeal) {
+                  break;
+                }
+              }
+            } else {
+              // 데이터가 없으면 연속이 끊김
+              if (foundFirstMeal) {
+                break;
+              }
+            }
+            
+            // 이전 날짜로 이동
+            currentDate.setDate(currentDate.getDate() - 1);
+          }
+          
+          setMealRecords(totalMeals);
+          setStreakDays(consecutiveDays);
+        } catch (error) {
+          console.warn('식사 통계 가져오기 실패:', error);
+        }
+      } catch (error) {
+        console.error('활동 통계 가져오기 실패:', error);
+      } finally {
+        setLoadingStats(false);
+      }
+    };
+
+    fetchActivityStats();
+  }, []);
 
   const name = userInfo.name || '친구';
   const age = parseInt(userInfo.age) || 0;

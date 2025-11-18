@@ -5,6 +5,7 @@ import { api } from '../api/client';
 import { getKoreanDate, toKoreanDateString } from '../lib/utils';
 import { startOfWeek, endOfWeek, format, eachDayOfInterval, isBefore, isSameDay } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import { useModeStore } from '../stores/useModeStore';
 
 const calculateBMI = (weight: number, height: number): number => {
   const heightInMeters = height / 100;
@@ -37,6 +38,7 @@ const getAgeGroup = (age: number): string => {
 const formatInt = (n: number) => Math.round(n).toLocaleString();
 
 export const NutritionAnalysisPage: React.FC = () => {
+  const { isKidsMode } = useModeStore();
   const [userStats, setUserStats] = useState({
     weight: 0,
     height: 0,
@@ -114,6 +116,59 @@ export const NutritionAnalysisPage: React.FC = () => {
     };
     fetchAverageByAge();
   }, [userProfile]);
+
+  // 키즈 모드에서 데이터 변경 시 데이터 다시 불러오기
+  useEffect(() => {
+    const handleMealDataChanged = () => {
+      // 영양소 데이터 다시 불러오기 (기존 useEffect가 자동으로 실행되도록 강제)
+      // selectedDate를 변경하지 않고 직접 fetchTodayNutrition 로직 실행
+      const fetchTodayNutrition = async () => {
+        try {
+          const targetDate = toKoreanDateString(selectedDate);
+          const userId = localStorage.getItem('user_id');
+          
+          if (!userId) {
+            return;
+          }
+
+          const userIdNum = parseInt(userId);
+          if (isNaN(userIdNum)) {
+            return;
+          }
+
+          // 오늘의 식사 요약 데이터 가져오기
+          const { data: mealSummary, error: summaryError } = await api.meals.getMealSummary(targetDate, userIdNum as any);
+          
+          if (summaryError) {
+            console.error('식사 요약 데이터 가져오기 실패:', summaryError);
+            return;
+          }
+
+          if (mealSummary) {
+            // 영양소 데이터 업데이트
+            const nutritionData: any = {
+              calories: mealSummary.total_calories || 0,
+              protein: mealSummary.total_protein || 0,
+              carbs: mealSummary.total_carbs || 0,
+              fat: mealSummary.total_fat || 0,
+              sodium: 0,
+              sugar: 0,
+            };
+            setTodayNutrition(nutritionData);
+          }
+        } catch (error) {
+          console.error('영양소 데이터 가져오기 실패:', error);
+        }
+      };
+      
+      fetchTodayNutrition();
+    };
+
+    window.addEventListener('mealDataChanged', handleMealDataChanged);
+    return () => {
+      window.removeEventListener('mealDataChanged', handleMealDataChanged);
+    };
+  }, [selectedDate]);
 
   // 오늘의 영양소 데이터 가져오기
   useEffect(() => {
@@ -609,7 +664,10 @@ export const NutritionAnalysisPage: React.FC = () => {
           >
             {todayNutrition ? (
               <>
-                {['칼로리', '탄수화물', '단백질', '지방', '당류', '포화지방', '트랜스지방', '콜레스테롤', '나트륨'].map((nutrient) => {
+                {(isKidsMode 
+                  ? ['칼로리', '탄수화물', '단백질', '지방'] 
+                  : ['칼로리', '탄수화물', '단백질', '지방', '당류', '포화지방', '트랜스지방', '콜레스테롤', '나트륨']
+                ).map((nutrient) => {
                   const info = getNutrientInfo(nutrient);
                   const color = getNutrientColor(nutrient);
                   const unit = nutrient === '칼로리' ? 'kcal' : nutrient === '나트륨' || nutrient === '콜레스테롤' ? 'mg' : 'g';

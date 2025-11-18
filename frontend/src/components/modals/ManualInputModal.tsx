@@ -68,7 +68,27 @@ export const ManualInputModal: React.FC<ManualInputModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.foodName || !formData.calories || !formData.grams) {
+    if (!formData.foodName || !formData.grams) {
+      return;
+    }
+
+    // 탄단지 입력값
+    const carbs = parseFloat(formData.carbs) || 0;
+    const protein = parseFloat(formData.protein) || 0;
+    const fat = parseFloat(formData.fat) || 0;
+
+    // 칼로리 계산: 탄수화물 4kcal/g, 단백질 4kcal/g, 지방 9kcal/g
+    // 칼로리를 직접 입력했으면 그것을 사용, 아니면 탄단지로 계산
+    let calculatedCalories = 0;
+    if (carbs > 0 || protein > 0 || fat > 0) {
+      calculatedCalories = (carbs * 4) + (protein * 4) + (fat * 9);
+    }
+    
+    const calories = formData.calories ? parseInt(formData.calories) : Math.round(calculatedCalories);
+    
+    // 칼로리가 없으면 에러
+    if (!calories || calories === 0) {
+      alert('칼로리 또는 탄수화물/단백질/지방 중 하나를 입력해주세요.');
       return;
     }
 
@@ -77,14 +97,17 @@ export const ManualInputModal: React.FC<ManualInputModalProps> = ({
     const timeString = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
     const dateString = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     
-    // 식사 기록 생성
+    // 식사 기록 생성 (탄단지 정보 포함)
     const newMeal: MealRecord = {
       id: `meal-${Date.now()}`,
       time: timeString,
       foodName: formData.foodName,
-      calories: parseInt(formData.calories) || 0,
+      calories: calories,
       grams: parseInt(formData.grams) || 0,
       date: dateString,
+      carbs: carbs,
+      protein: protein,
+      fat: fat,
     };
 
     // 저장 콜백 호출
@@ -167,45 +190,47 @@ export const ManualInputModal: React.FC<ManualInputModalProps> = ({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="calories" className="block text-sm font-medium text-gray-700 mb-2">
-                    칼로리 🔥
-                  </label>
-                  <input
-                    id="calories"
-                    name="calories"
-                    type="number"
-                    value={formData.calories}
-                    onChange={handleChange}
-                    className="input-field"
-                    placeholder="kcal"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="grams" className="block text-sm font-medium text-gray-700 mb-2">
-                    양 (g) ⚖️
-                  </label>
-                  <input
-                    id="grams"
-                    name="grams"
-                    type="number"
-                    value={formData.grams}
-                    onChange={handleChange}
-                    className="input-field"
-                    placeholder="그램"
-                    required
-                  />
-                </div>
+              <div>
+                <label htmlFor="grams" className="block text-sm font-medium text-gray-700 mb-2">
+                  양 (g) ⚖️
+                </label>
+                <input
+                  id="grams"
+                  name="grams"
+                  type="number"
+                  value={formData.grams}
+                  onChange={handleChange}
+                  className="input-field"
+                  placeholder="그램"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="calories" className="block text-sm font-medium text-gray-700 mb-2">
+                  칼로리 🔥 (선택 - 탄단지 입력 시 자동 계산)
+                </label>
+                <input
+                  id="calories"
+                  name="calories"
+                  type="number"
+                  value={formData.calories}
+                  onChange={handleChange}
+                  className="input-field"
+                  placeholder="kcal (자동 계산됨)"
+                />
+                {formData.carbs || formData.protein || formData.fat ? (
+                  <p className="text-xs text-green-600 mt-1">
+                    계산된 칼로리: {Math.round((parseFloat(formData.carbs || '0') * 4) + (parseFloat(formData.protein || '0') * 4) + (parseFloat(formData.fat || '0') * 9))} kcal
+                  </p>
+                ) : null}
               </div>
             </div>
 
             {/* Optional Fields */}
             <div className="space-y-4">
               <h3 className="text-sm font-semibold text-gray-700">
-                영양 정보 (선택)
+                영양 정보 (탄수화물, 단백질, 지방 입력 시 칼로리 자동 계산)
               </h3>
               
               <div className="grid grid-cols-3 gap-3">

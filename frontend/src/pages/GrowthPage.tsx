@@ -1,18 +1,46 @@
 import { Card } from "../components/ui/Card";
 import { Character } from "../components/Character";
-import { useMemo } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { getRandomTip } from "../utils/randomTips";
+import { useUser } from "../contexts/UserContext";
+import { api } from "../api/client";
 
 
 export function GrowthPage() {
   const randomTip = useMemo(() => getRandomTip(), []);
-  // BMI 계산에 필요한 데이터 (실제로는 사용자 입력에서 가져옴)
-  const height = 145; // cm
-  const weight = 38; // kg
-  const bmi = (weight / Math.pow(height / 100, 2)).toFixed(1);
+  const { userInfo } = useUser();
+  const [userProfile, setUserProfile] = useState<any>(null);
+
+  // 실제 사용자 프로필 정보 가져오기
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      try {
+        const userId = localStorage.getItem('user_id');
+        if (!userId) {
+          console.warn('사용자 ID가 없습니다.');
+          return;
+        }
+
+        const { data: profile } = await api.user.getProfile(parseInt(userId));
+        if (profile) {
+          setUserProfile(profile);
+        }
+      } catch (error) {
+        console.error('사용자 프로필 가져오기 실패:', error);
+      }
+    };
+
+    fetchUserProfile();
+  }, []);
+
+  // BMI 계산에 필요한 데이터 (실제 사용자 데이터 사용)
+  const height = parseFloat(userProfile?.height || userInfo.height || '0') || 0;
+  const weight = parseFloat(userProfile?.weight || userInfo.weight || '0') || 0;
+  const bmi = height > 0 && weight > 0 ? (weight / Math.pow(height / 100, 2)).toFixed(1) : '0.0';
   
   // BMI 상태 판정
   const getBMIStatus = (bmiValue: number) => {
+    if (bmiValue <= 0) return { status: "데이터 없음", color: "#9CA3AF", position: 50 };
     if (bmiValue < 18.5) return { status: "저체중", color: "#60A5FA", position: 15 };
     if (bmiValue < 23) return { status: "정상", color: "#34D399", position: 45 };
     if (bmiValue < 25) return { status: "과체중", color: "#FBBF24", position: 75 };
@@ -20,7 +48,7 @@ export function GrowthPage() {
   };
 
   // 평균 체중 계산 (간단한 예시)
-  const averageWeight = Math.round((height - 100) * 0.9);
+  const averageWeight = height > 0 ? Math.round((height - 100) * 0.9) : 0;
 
   const bmiStatus = getBMIStatus(Number(bmi));
 
@@ -105,11 +133,11 @@ export function GrowthPage() {
         {/* 키와 체중 표시 */}
         <div className="grid grid-cols-2 gap-6">
           <div className="text-center p-6 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-3xl">
-            <p className="text-5xl text-gray-900 mb-2">{height} cm</p>
+            <p className="text-5xl text-gray-900 mb-2">{height > 0 ? `${height} cm` : '-'}</p>
             <p className="text-gray-600">키</p>
           </div>
           <div className="text-center p-6 bg-gradient-to-br from-purple-50 to-pink-50 rounded-3xl">
-            <p className="text-5xl text-gray-900 mb-2">{weight} kg</p>
+            <p className="text-5xl text-gray-900 mb-2">{weight > 0 ? `${weight} kg` : '-'}</p>
             <p className="text-gray-600">체중</p>
           </div>
         </div>
