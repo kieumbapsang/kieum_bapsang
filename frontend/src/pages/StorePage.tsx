@@ -16,101 +16,54 @@ import {
 } from "lucide-react";
 import { KakaoMapForStores } from "../components/KakaoMapForStores";
 import { Character } from "../components/Character";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { getRandomTip } from "../utils/randomTips";
 import { useUser } from '../contexts/UserContext';
+import { getStoresByDistrict, getAllStores, getStoresByCity } from '../services/storeService';
+import { Store } from '../components/ui/kakaoMap';
+import { api } from '../api/client';
 
-type CityKey = '서울특별시' | '부산광역시' | '대구광역시' | '인천광역시' | '광주광역시' | '대전광역시' | '울산광역시' | '세종특별자치시' | '경기도' | '강원도' | '충청북도' | '충청남도';
+type CityKey = '서울특별시' | '부산광역시' | '대구광역시' | '인천광역시' | '광주광역시' | '대전광역시' | '울산광역시' | '세종특별자치시' | '경기도' | '강원특별자치도' | '충청북도' | '충청남도' | '경상남도' | '경상북도' | '전북특별자치도';
 
-interface StoreItem {
-  id: string;
-  name: string;
-  address: string;
-  distance: string;
-  phone: string;
-  lat: number;
-  lng: number;
-  city?: CityKey;
-  district?: string;
-}
+// 편의점 확인
+const isConvenienceStore = (storeName: string): boolean => {
+  const name = storeName.toLowerCase();
+  return name.includes('cu') || 
+         name.includes('씨유') || 
+         name.includes('세븐일레븐') ||
+         name.includes('gs25') ||
+         name.includes('지에스25') ||
+         name.includes('이마트24');
+};
 
-const stores: StoreItem[] = [
-  {
-    id: "1",
-    name: "행복한 밥상",
-    address: "서울시 강남구 테헤란로 123",
-    distance: "0.3km",
-    phone: "02-1234-5678",
-    lat: 37.5012,
-    lng: 127.0396,
-    city: "서울특별시",
-    district: "강남구",
-  },
-  {
-    id: "2",
-    name: "GS25 역삼점",
-    address: "서울시 강남구 역삼동 456",
-    distance: "0.5km",
-    phone: "02-2345-6789",
-    lat: 37.5012,
-    lng: 127.0396,
-    city: "서울특별시",
-    district: "강남구",
-  },
-  {
-    id: "3",
-    name: "따뜻한 카페",
-    address: "서울시 강남구 선릉로 789",
-    distance: "0.7km",
-    phone: "02-3456-7890",
-    lat: 37.5012,
-    lng: 127.0396,
-    city: "서울특별시",
-    district: "강남구",
-  },
-  {
-    id: "4",
-    name: "맘스터치 강남점",
-    address: "서울시 강남구 강남대로 321",
-    distance: "0.9km",
-    phone: "02-4567-8901",
-    lat: 37.5012,
-    lng: 127.0396,
-    city: "서울특별시",
-    district: "강남구",
-  },
-  {
-    id: "5",
-    name: "신선마트",
-    address: "서울시 강남구 논현로 654",
-    distance: "1.2km",
-    phone: "02-5678-9012",
-    lat: 37.5012,
-    lng: 127.0396,
-    city: "서울특별시",
-    district: "강남구",
-  },
-];
+const isValidTel = (tel: string | undefined): boolean => {
+  if (!tel) return false;
+  const cleaned = tel.trim().replace(/[-\s]/g, '');
+  return cleaned !== '0000000000' && !/^0{3}[- ]?0{4}[- ]?0{4}$/.test(tel.trim());
+};
 
 const cities: CityKey[] = [
   '서울특별시', '부산광역시', '대구광역시', '인천광역시', '광주광역시',
-  '대전광역시', '울산광역시', '세종특별자치시', '경기도', '강원도',
-  '충청북도', '충청남도'
+  '대전광역시', '울산광역시', '세종특별자치시', '경기도', '강원특별자치도',
+  '충청북도', '충청남도', '경상남도', '경상북도', '전북특별자치도'
 ];
 
 const districtsByCity: Record<CityKey, string[]> = {
-  '서울특별시': ['서대문구', '양천구', '구로구', '영등포구', '관악구', '강남구', '마포구', '강서구', '금천구', '동작구', '서초구', '송파구'],
-  '부산광역시': ['중구', '서구', '동구', '영도구', '부산진구', '동래구', '남구', '북구', '해운대구', '사하구', '금정구', '강서구', '연제구', '수영구', '사상구', '기장군'],
-  '대구광역시': ['중구', '동구', '서구', '남구', '북구', '수성구', '달서구', '달성군'],
-  '인천광역시': ['중구', '동구', '미추홀구', '연수구', '남동구', '부평구', '계양구', '서구', '강화군', '옹진군'],
-  '광주광역시': ['동구', '서구', '남구', '북구', '광산구'],
-  '대전광역시': ['동구', '중구', '서구', '유성구', '대덕구'],
-  '울산광역시': ['중구', '남구', '동구', '북구', '울주군'],
-  '세종특별자치시': ['세종시'],
-  '경기도': ['수원시', '성남시', '고양시', '용인시', '부천시', '안산시', '안양시', '남양주시', '화성시', '평택시', '의정부시', '시흥시', '파주시', '광명시', '김포시', '군포시', '광주시', '이천시', '양주시', '오산시', '구리시', '안성시', '포천시', '의왕시', '하남시', '여주시', '양평군', '동두천시', '과천시', '가평군', '연천군'],
-  '강원도': ['춘천시', '원주시', '강릉시', '동해시', '태백시', '속초시', '삼척시', '홍천군', '횡성군', '영월군', '평창군', '정선군', '철원군', '화천군', '양구군', '인제군', '고성군', '양양군'],
-  '충청북도': ['청주시', '충주시', '제천시', '보은군', '옥천군', '영동군', '증평군', '진천군', '괴산군', '음성군', '단양군'],
-  '충청남도': ['천안시', '공주시', '보령시', '아산시', '서산시', '논산시', '계룡시', '당진시', '금산군', '부여군', '서천군', '청양군', '홍성군', '예산군', '태안군']
+  '서울특별시': ['강남구', '강동구', '강북구', '강서구', '관악구', '광진구', '구로구', '금천구', '노원구', '도봉구', '동대문구', '동작구', '마포구', '서대문구', '서초구', '성동구', '성북구', '송파구', '양천구', '영등포구', '용산구', '은평구', '종로구', '중구', '중랑구'],
+  '부산광역시': ['강서구', '동래구', '북구', '서구', '연제구', '해운대구'],
+  '대구광역시': ['남구', '달서구', '북구', '수성구', '중구'],
+  '인천광역시': ['남동구', '미추홀구', '연수구'],
+  '광주광역시': ['광산구', '남구', '동구', '북구', '서구'],
+  '대전광역시': ['서구', '유성구'],
+  '울산광역시': ['울주군', '중구'],
+  '세종특별자치시': ['없음'],
+  '경기도': ['과천시', '광명시', '구리시', '군포시', '동두천시', '부천시', '수원시', '안산시 단원구', '안산시 상록구', '양주시', '여주시', '연천군', '용인시', '의왕시', '의정부시', '파주시', '평택시', '하남시'],
+  '강원특별자치도': ['삼척시', '속초시', '영월군', '원주시', '춘천시', '화천군'],
+  '충청북도': ['단양군', '증평군'],
+  '충청남도': ['금산군', '논산시', '부여군', '서산시', '천안시 동남구', '천안시 서북구', '청양군', '태안군', '홍성군'],
+  '경상남도': ['김해시', '밀양시', '사천시', '창원시', '통영시', '함양군'],
+  '경상북도': ['경산시', '경주시', '구미시', '김천시', '문경시', '상주시', '영주시', '영천시', '울진군', '청도군', '포항시'],
+  '전북특별자치도': ['남원시', '전주시 덕진구', '전주시 완산구', '정읍시']
 };
 
 export function StorePage() {
@@ -118,26 +71,182 @@ export function StorePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isRegionModalOpen, setIsRegionModalOpen] = useState(false);
   const randomTip = useMemo(() => getRandomTip(), []);
+  const [userAddress, setUserAddress] = useState<string>('');
+  const [isAddressLoaded, setIsAddressLoaded] = useState<boolean>(false);
+  const [allStores, setAllStores] = useState<Store[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // 주소에서 초기 지역 파싱
-  const parseAddress = (address: string): { city: CityKey | null; district: string | null } => {
-    if (!address) return { city: null, district: null };
-    const addressPattern = /^(.+?)(시|도|특별시|광역시|특별자치시|특별자치도)\s+(.+?)(구|군|시)$/;
-    const match = address.match(addressPattern);
-    if (!match) return { city: null, district: null };
-    const cityPart = match[1] + match[2];
-    const districtPart = match[3] + match[4];
-    return {
-      city: cityPart as CityKey,
-      district: districtPart
+  // 서버에서 사용자 프로필 가져오기 (최신 주소 정보)
+  useEffect(() => {
+    const fetchUserAddress = async () => {
+      setIsAddressLoaded(false);
+      try {
+        const userId = localStorage.getItem('user_id');
+        if (!userId) {
+          console.log('user_id가 없어서 UserContext의 주소 사용');
+          const address = userInfo?.address || '';
+          setUserAddress(address);
+          setIsAddressLoaded(true);
+          return;
+        }
+
+        const { data: profileData, error } = await api.user.getProfile(parseInt(userId));
+        
+        if (error) {
+          console.error('사용자 프로필 로딩 오류:', error);
+          console.log('UserContext의 주소 사용');
+          const address = userInfo?.address || '';
+          setUserAddress(address);
+          setIsAddressLoaded(true);
+          return;
+        }
+
+        if (profileData?.address) {
+          console.log('서버에서 가져온 사용자 주소:', profileData.address);
+          setUserAddress(profileData.address);
+        } else {
+          console.log('서버에서 주소를 찾을 수 없어서 UserContext의 주소 사용');
+          const address = userInfo?.address || '';
+          setUserAddress(address);
+        }
+        setIsAddressLoaded(true);
+      } catch (err) {
+        console.error('사용자 프로필 로딩 오류:', err);
+        console.log('UserContext의 주소 사용');
+        const address = userInfo?.address || '';
+        setUserAddress(address);
+        setIsAddressLoaded(true);
+      }
     };
+
+    fetchUserAddress();
+  }, [userInfo?.address]);
+
+  // 주소에서 초기 지역 파싱 (기본모드와 동일한 로직)
+  const parseAddress = (address: string): { city: CityKey | null; district: string | null } => {
+    if (!address) {
+      console.log('주소가 비어있습니다.');
+      return { city: null, district: null };
+    }
+
+    // 주소 정규화 - 공백 정리 및 앞뒤 공백 제거
+    let normalized = address.trim().replace(/\s+/g, ' ');
+    console.log('주소 파싱 시작:', normalized);
+
+    // 약칭을 전체 이름으로 변환
+    const cityMapping: Record<string, CityKey> = {
+      '서울시': '서울특별시',
+      '서울': '서울특별시',
+      '부산시': '부산광역시',
+      '부산': '부산광역시',
+      '대구시': '대구광역시',
+      '대구': '대구광역시',
+      '인천시': '인천광역시',
+      '인천': '인천광역시',
+      '광주시': '광주광역시',
+      '광주': '광주광역시',
+      '대전시': '대전광역시',
+      '대전': '대전광역시',
+      '울산시': '울산광역시',
+      '울산': '울산광역시',
+      '세종시': '세종특별자치시',
+      '세종': '세종특별자치시',
+      '경기': '경기도',
+      '강원': '강원특별자치도',
+      '충북': '충청북도',
+      '충남': '충청남도',
+      '경남': '경상남도',
+      '경북': '경상북도',
+      '전북': '전북특별자치도'
+    };
+
+    // 정규식으로 파싱 (완전한 형태) - 시도명과 구/군/시 모두 포함
+    // 예: "서울특별시 관악구", "서울특별시 마포구", "경기도 수원시" 등
+    const addressPattern = /^(.+?)(특별시|광역시|특별자치시|특별자치도|도)\s+(.+?)(구|군|시)/;
+    const match = normalized.match(addressPattern);
+
+    if (match) {
+      const cityPart = match[1] + match[2];
+      const districtPart = match[3] + match[4];
+      
+      console.log('정규식 매칭 성공:', { cityPart, districtPart });
+      
+      // 시도명이 유효한 CityKey인지 확인
+      if (cities.includes(cityPart as CityKey)) {
+        console.log('파싱 성공:', { city: cityPart, district: districtPart });
+        return {
+          city: cityPart as CityKey,
+          district: districtPart
+        };
+      } else {
+        console.log('유효하지 않은 시도명:', cityPart);
+      }
+    } else {
+      console.log('정규식 매칭 실패, 약칭 매핑 시도');
+    }    
+
+    // 시도명 약칭 매칭 - "서울시 서대문구" 같은 형식 처리
+    // 긴 약칭부터 매칭 (예: "서울시" -> "서울"보다 먼저)
+    const sortedMappingEntries = Object.entries(cityMapping).sort((a, b) => b[0].length - a[0].length);
+    
+    for (const [short, full] of sortedMappingEntries) {
+      if (normalized.startsWith(short)) {
+        const rest = normalized.substring(short.length).trim();
+        console.log(`약칭 "${short}" 매칭됨, 나머지: "${rest}"`);
+
+        // 구/군/시 패턴 찾기 (공백 제거 후 매칭)
+        const trimmedRest = rest.replace(/\s+/g, ' ').trim();
+        const districtMatch = trimmedRest.match(/(.+?)(구|군|시)/);
+        if (districtMatch) {
+          const district = (districtMatch[1] + districtMatch[2]).trim();
+          console.log('약칭 매핑으로 파싱 성공:', { city: full, district, original: normalized });
+          return {
+            city: full,
+            district: district
+          };
+        }
+        
+        // 구/군/시를 찾지 못했지만 시도는 찾은 경우
+        console.log(`시도 "${full}"는 매칭되었지만 구/군/시를 찾을 수 없음: "${rest}"`);
+        return {
+          city: full,
+          district: null
+        };
+      }
+    }
+    
+    console.log('주소 파싱 실패:', normalized);
+    return { city: null, district: null };
   };
 
-  const { city: initialCity, district: initialDistrict } = parseAddress(userInfo.address || '');
-  const [selectedCity, setSelectedCity] = useState<CityKey>(initialCity || '서울특별시');
-  const [selectedDistricts, setSelectedDistricts] = useState<string[]>(initialDistrict ? [initialDistrict] : ['강남구']);
+  const addressToParse = userAddress || userInfo?.address || '';
+  const { city: initialCity, district: initialDistrict } = parseAddress(addressToParse);
+  const [selectedCity, setSelectedCity] = useState<CityKey | null>(null);
+  const [selectedDistricts, setSelectedDistricts] = useState<string[]>([]);
   const [tempSelectedCity, setTempSelectedCity] = useState<CityKey>(initialCity || '서울특별시');
-  const [tempSelectedDistricts, setTempSelectedDistricts] = useState<string[]>(initialDistrict ? [initialDistrict] : ['강남구']);
+  const [tempSelectedDistricts, setTempSelectedDistricts] = useState<string[]>(initialDistrict ? [initialDistrict] : []);
+
+  // 주소가 로드되고 파싱되면 선택된 지역 설정
+  useEffect(() => {
+    if (isAddressLoaded && addressToParse) {
+      const { city: parsedCity, district: parsedDistrict } = parseAddress(addressToParse);
+      if (parsedCity) {
+        setSelectedCity(parsedCity);
+        // 거주지의 시도와 시군구를 기본값으로 설정
+        if (parsedDistrict) {
+          setSelectedDistricts([parsedDistrict]);
+        } else {
+          setSelectedDistricts([]);
+        }
+      } else {
+        setSelectedCity('서울특별시');
+        setSelectedDistricts([]);
+      }
+    } else if (isAddressLoaded && !addressToParse) {
+      setSelectedCity('서울특별시');
+      setSelectedDistricts([]);
+    }
+  }, [isAddressLoaded, addressToParse]);
 
   const currentDistricts = districtsByCity[tempSelectedCity] || [];
 
@@ -160,18 +269,92 @@ export function StorePage() {
     setIsRegionModalOpen(false);
   };
 
-  // 필터링된 가게 목록
-  const filteredStores = stores
-    .filter((store) => {
-      const matchesSearch =
-        store.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        store.address.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesRegion = 
-        (!selectedCity || store.city === selectedCity) &&
-        (selectedDistricts.length === 0 || (store.district && selectedDistricts.includes(store.district)));
-      return matchesSearch && matchesRegion;
-    })
-    .sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance));
+  // 선택된 지역에 따라 매장 데이터 로드
+  useEffect(() => {
+    if (!isAddressLoaded || !selectedCity) {
+      return;
+    }
+
+    const loadStores = async () => {
+      setLoading(true);
+      try {
+        // 사용자 거주지 시도와 선택된 시도 비교
+        const isUserCity = initialCity === selectedCity;
+        
+        console.log('매장 데이터 로드 시작:', {
+          initialCity,
+          selectedCity,
+          isUserCity,
+          selectedDistricts,
+          districtsLength: selectedDistricts.length
+        });
+
+        let stores: Store[] = [];
+
+        if (isUserCity) {
+          // 거주지 시도와 일치하면 해당 시도의 모든 가맹점 조회 (시군구 선택 여부와 무관)
+          console.log('거주지 시도와 일치 - 모든 가맹점 조회');
+          if (selectedDistricts.length > 0) {
+            // 특정 시군구가 선택된 경우: 해당 시군구의 가맹점만 조회
+            console.log('시군구 선택됨 - 해당 시군구의 가맹점 조회');
+            stores = await getStoresByDistrict(selectedCity, selectedDistricts);
+          } else {
+            // 시군구가 선택되지 않은 경우: 해당 시도의 모든 가맹점 조회
+            console.log('시군구 미선택 - 해당 시도의 모든 가맹점 조회');
+            stores = await getStoresByCity(selectedCity);
+          }
+        } else {
+          // 거주지 시도와 일치하지 않으면 편의점만 조회
+          console.log('거주지 시도와 다름 - 편의점만 조회');
+          if (selectedDistricts.length > 0) {
+            // 시군구가 선택된 경우: 해당 시군구의 편의점만 조회
+            const districtStores = await getStoresByDistrict(selectedCity, selectedDistricts);
+            stores = districtStores.filter(store => isConvenienceStore(store.name));
+            console.log('시군구 편의점 필터링 완료:', {
+              totalStores: districtStores.length,
+              convenienceStores: stores.length
+            });
+          } else {
+            // 시군구가 선택되지 않은 경우: 해당 시도의 편의점만 조회
+            const cityStores = await getStoresByCity(selectedCity);
+            stores = cityStores.filter(store => isConvenienceStore(store.name));
+            console.log('시도 편의점 필터링 완료:', {
+              totalStores: cityStores.length,
+              convenienceStores: stores.length
+            });
+          }
+        }
+
+        console.log('매장 데이터 로드 완료:', {
+          city: selectedCity,
+          districts: selectedDistricts,
+          storeCount: stores.length,
+          firstStore: stores[0] ? { name: stores[0].name, district: stores[0].district } : null
+        });
+        setAllStores(stores);
+      } catch (error) {
+        console.error('매장 데이터 로드 실패:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // 항상 매장 데이터 로드
+    loadStores();
+  }, [isAddressLoaded, selectedCity, selectedDistricts, initialCity]);
+
+  // 검색어에 따라 필터링된 가게 목록
+  const filteredStores = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return allStores;
+    }
+
+    return allStores.filter(store =>
+      store.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      store.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (store.dong && store.dong.toLowerCase().includes(searchQuery.toLowerCase()))
+    );
+  }, [allStores, searchQuery]);
 
   return (
     <div className="space-y-6">
@@ -204,7 +387,7 @@ export function StorePage() {
             {selectedCity}{selectedDistricts.length > 0 && ` · ${selectedDistricts.join(', ')}`}
           </span>
           <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
-            {selectedDistricts.length + 1}개 선택
+            {selectedDistricts.length > 0 ? selectedDistricts.length + 1 : 1}개 선택
           </span>
         </Button>
       </div>
@@ -213,14 +396,17 @@ export function StorePage() {
       <Card className="p-5 border-0 shadow-lg bg-gradient-to-br from-blue-100 to-cyan-100 rounded-3xl">
         <KakaoMapForStores
           stores={filteredStores.map(store => ({
-            id: store.id,
+            id: store.id.toString(),
             name: store.name,
             category: "",
             address: store.address,
             lat: store.lat,
             lng: store.lng,
           }))}
-          center={{ lat: 37.4979, lng: 127.0276 }}
+          center={filteredStores.length > 0 
+            ? { lat: filteredStores[0].lat, lng: filteredStores[0].lng }
+            : { lat: 37.4979, lng: 127.0276 }
+          }
           onStoreClick={() => {}}
         />
         <div className="mt-4 bg-white/60 backdrop-blur-sm p-3 rounded-2xl text-center">
@@ -237,41 +423,62 @@ export function StorePage() {
           <span className="text-sm text-gray-500">({filteredStores.length}개)</span>
         </div>
 
-        <div className="space-y-4">
-          {filteredStores.map((store) => (
-            <Card
-              key={store.id}
-              className="p-5 border-0 shadow-lg hover:shadow-xl transition-all duration-300 bg-white rounded-3xl hover:scale-[1.01]"
-            >
-              <div className="space-y-3">
-                <div className="flex items-start justify-between">
-                  <h4 className="text-gray-900">{store.name}</h4>
-                </div>
+        {loading ? (
+          <div className="text-center py-8 text-gray-500">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto"></div>
+            <p className="mt-2">매장 정보를 불러오는 중...</p>
+          </div>
+        ) : filteredStores.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            {initialCity === selectedCity 
+              ? `선택한 지역(${selectedCity} ${selectedDistricts.join(', ')})에 매장이 없습니다.`
+              : `선택한 지역(${selectedCity} ${selectedDistricts.join(', ')})에 편의점이 없습니다.`
+            }
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredStores.map((store) => (
+              <Card
+                key={store.id}
+                className="p-5 border-0 shadow-lg hover:shadow-xl transition-all duration-300 bg-white rounded-3xl hover:scale-[1.01]"
+              >
+                <div className="space-y-3">
+                  <div className="flex items-start justify-between">
+                    <h4 className="text-gray-900">{store.name}</h4>
+                    {store.district && (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        {store.district}
+                      </span>
+                    )}
+                  </div>
 
-                <div className="space-y-2">
-                  <div className="flex items-start gap-2 text-sm text-gray-600">
-                    <div className="w-5 h-5 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <MapPin className="w-3 h-3 text-green-600" />
+                  <div className="space-y-2">
+                    <div className="flex items-start gap-2 text-sm text-gray-600">
+                      <div className="w-5 h-5 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <MapPin className="w-3 h-3 text-green-600" />
+                      </div>
+                      <span className="flex-1">{store.address}</span>
                     </div>
-                    <span className="flex-1">{store.address}</span>
-                  </div>
-                  
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <div className="w-5 h-5 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <Phone className="w-3 h-3 text-purple-600" />
-                    </div>
-                    <a 
-                      href={`tel:${store.phone}`}
-                      className="text-purple-600 hover:underline"
-                    >
-                      {store.phone}
-                    </a>
+                    
+                    {isValidTel(store.tel) && (
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <div className="w-5 h-5 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
+                          <Phone className="w-3 h-3 text-purple-600" />
+                        </div>
+                        <a 
+                          href={`tel:${store.tel}`}
+                          className="text-purple-600 hover:underline"
+                        >
+                          {store.tel}
+                        </a>
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
-            </Card>
-          ))}
-        </div>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Welcome Character */}
@@ -376,6 +583,15 @@ export function StorePage() {
                 </p>
               </div>
             )}
+
+            {/* 안내 문구 - 거주지 외 지역 선택 시 */}
+            {initialCity && initialCity !== tempSelectedCity && (
+              <div className="mb-6 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-sm text-yellow-800">
+                  ⚠️ 거주지 외 지역에서는 편의점 목록만 표시됩니다.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Action Buttons */}
@@ -389,10 +605,9 @@ export function StorePage() {
             </Button>
             <Button
               onClick={handleConfirmRegion}
-              disabled={tempSelectedDistricts.length === 0}
-              className="flex-1 h-12 rounded-xl bg-green-500 hover:bg-green-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 h-12 rounded-xl bg-green-500 hover:bg-green-600 text-white"
             >
-              선택 완료 ({tempSelectedDistricts.length + 1}개)
+              선택 완료 ({tempSelectedDistricts.length > 0 ? tempSelectedDistricts.length + 1 : 1}개)
             </Button>
           </div>
         </DialogContent>

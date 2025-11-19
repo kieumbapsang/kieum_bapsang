@@ -26,6 +26,9 @@ import { StorePage as KidsStorePage } from './pages/StorePage';
 
 // Kids Mode Components
 import { ChildHeader } from './components/ChildHeader';
+import { ManualInputModal } from './components/modals/ManualInputModal';
+import { api } from './api/client';
+import { getKoreanDate, toKoreanDateString } from './lib/utils';
 
 /**
  * Kids Mode 레이아웃 컴포넌트
@@ -33,7 +36,7 @@ import { ChildHeader } from './components/ChildHeader';
  * - 키즈 친화적인 UI/UX
  */
 const KidsLayout = ({ children }) => {
-  const [isMealModalOpen, setIsMealModalOpen] = useState(false);
+  const [isManualInputOpen, setIsManualInputOpen] = useState(false);
   const location = useLocation();
   
   // 키즈모드 네비게이션 아이템 정의 (기본모드와 동일한 구조)
@@ -113,7 +116,7 @@ const KidsLayout = ({ children }) => {
             </Link>
           ))}
           <button 
-            onClick={() => setIsMealModalOpen(true)}
+            onClick={() => setIsManualInputOpen(true)}
             className="flex flex-col items-center justify-center"
           >
             <div className="w-14 h-14 bg-primary-500 rounded-full flex items-center justify-center -mt-6 shadow-lg">
@@ -145,9 +148,45 @@ const KidsLayout = ({ children }) => {
         </div>
         <div className="h-[env(safe-area-inset-bottom)] bg-white" />
       </nav>
-      <AddMealModal 
-        isOpen={isMealModalOpen}
-        onClose={() => setIsMealModalOpen(false)}
+      <ManualInputModal
+        open={isManualInputOpen}
+        onOpenChange={setIsManualInputOpen}
+        onSave={async (meal) => {
+          try {
+            const userId = localStorage.getItem('user_id');
+            if (!userId) {
+              console.error('사용자 ID가 없습니다.');
+              return;
+            }
+
+            // API 형식으로 변환 (탄단지 정보 포함)
+            const mealData = {
+              food_name: meal.foodName,
+              nutrition_data: {
+                amount: meal.grams,
+                calories: meal.calories,
+                protein: meal.protein || 0,
+                carbs: meal.carbs || 0,
+                fat: meal.fat || 0,
+              },
+              intake_date: meal.date || toKoreanDateString(getKoreanDate()),
+            };
+
+            const { data, error } = await api.meals.addMeal(mealData, parseInt(userId));
+
+            if (error) {
+              console.error('식사 추가 실패:', error);
+              return;
+            }
+
+            // 기본 모드에 데이터 변경 알림
+            window.dispatchEvent(new CustomEvent('mealDataChanged', { 
+              detail: { action: 'add', date: meal.date || toKoreanDateString(getKoreanDate()) }
+            }));
+          } catch (error) {
+            console.error('식사 추가 중 오류:', error);
+          }
+        }}
       />
     </div>
   );
