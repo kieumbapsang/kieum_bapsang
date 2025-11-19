@@ -26,15 +26,56 @@ import { StorePage as KidsStorePage } from './pages/StorePage';
 
 // Kids Mode Components
 import { ChildHeader } from './components/ChildHeader';
-import { ChildBottomNav } from './components/ChildBottomNav';
 
 /**
  * Kids Mode 레이아웃 컴포넌트
- * - ChildHeader와 ChildBottomNav 사용
+ * - ChildHeader와 기본모드 하단바 사용
  * - 키즈 친화적인 UI/UX
  */
 const KidsLayout = ({ children }) => {
+  const [isMealModalOpen, setIsMealModalOpen] = useState(false);
   const location = useLocation();
+  
+  // 키즈모드 네비게이션 아이템 정의 (기본모드와 동일한 구조)
+  const navItems = [
+    {
+      path: '/home',
+      label: '홈',
+      icon: (
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+        </svg>
+      )
+    },
+    {
+      path: '/growth',
+      label: '성장기록',
+      icon: (
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+      )
+    },
+    {
+      path: '/stores',
+      label: '가맹점',
+      icon: (
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      )
+    },
+    {
+      path: '/mypage',
+      label: '내정보',
+      icon: (
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+        </svg>
+      )
+    }
+  ];
 
   return (
     <div className="min-h-screen flex flex-col kids-mode">
@@ -42,14 +83,72 @@ const KidsLayout = ({ children }) => {
       <ChildHeader />
 
       {/* 메인 콘텐츠 영역 */}
-      <main className="flex-grow pt-4 pb-28 px-4">
+      <main className="flex-grow pt-4 pb-[calc(4rem+env(safe-area-inset-bottom))] px-4">
         <div className="max-w-lg mx-auto">
           {children}
         </div>
       </main>
 
-      {/* Kids Mode 하단 네비게이션 */}
-      <ChildBottomNav />
+      {/* 기본모드와 동일한 하단 네비게이션 */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-200 z-50">
+        <div className="grid grid-cols-5 h-16 max-w-lg mx-auto">
+          {navItems.slice(0, 2).map((item) => (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={`flex flex-col items-center justify-center gap-1 ${
+                location.pathname === item.path
+                  ? 'text-primary-500'
+                  : 'text-neutral-600 active:text-primary-500'
+              }`}
+            >
+              <div className={`${location.pathname === item.path ? 'text-primary-500' : ''}`}>
+                {item.icon}
+              </div>
+              <span className={`text-xs font-medium ${
+                location.pathname === item.path ? 'text-primary-500' : ''
+              }`}>
+                {item.label}
+              </span>
+            </Link>
+          ))}
+          <button 
+            onClick={() => setIsMealModalOpen(true)}
+            className="flex flex-col items-center justify-center"
+          >
+            <div className="w-14 h-14 bg-primary-500 rounded-full flex items-center justify-center -mt-6 shadow-lg">
+              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </div>
+          </button>
+          {navItems.slice(2).map((item) => (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={`flex flex-col items-center justify-center gap-1 ${
+                location.pathname === item.path
+                  ? 'text-primary-500'
+                  : 'text-neutral-600 active:text-primary-500'
+              }`}
+            >
+              <div className={`${location.pathname === item.path ? 'text-primary-500' : ''}`}>
+                {item.icon}
+              </div>
+              <span className={`text-xs font-medium ${
+                location.pathname === item.path ? 'text-primary-500' : ''
+              }`}>
+                {item.label}
+              </span>
+            </Link>
+          ))}
+        </div>
+        <div className="h-[env(safe-area-inset-bottom)] bg-white" />
+      </nav>
+      <AddMealModal 
+        isOpen={isMealModalOpen}
+        onClose={() => setIsMealModalOpen(false)}
+      />
     </div>
   );
 };
