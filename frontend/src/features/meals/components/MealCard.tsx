@@ -80,6 +80,25 @@ export const MealCard: React.FC<MealCardProps> = ({
     onEdit(meal);
   };
 
+  // 키즈모드에서 추가한 식사인지 확인 (탄수화물, 단백질, 지방만 있고 다른 영양소는 모두 null/undefined)
+  const isKidsModeMeal = (): boolean => {
+    const hasBasicNutrients = 
+      (meal.carbs !== undefined && meal.carbs !== null) &&
+      (meal.protein !== undefined && meal.protein !== null) &&
+      (meal.fat !== undefined && meal.fat !== null);
+    
+    const hasOtherNutrients = 
+      (meal.saturatedFat !== undefined && meal.saturatedFat !== null) ||
+      (meal.transFat !== undefined && meal.transFat !== null) ||
+      (meal.cholesterol !== undefined && meal.cholesterol !== null) ||
+      (meal.sugar !== undefined && meal.sugar !== null) ||
+      (meal.sodium !== undefined && meal.sodium !== null);
+    
+    return hasBasicNutrients && !hasOtherNutrients;
+  };
+
+  const isKidsMeal = isKidsModeMeal();
+
   // 식사 데이터 기반 영양소 그래프 (8개 영양소)
   const getPieChartData = (): PieChartDataItem[] => {
     const data: PieChartDataItem[] = [];
@@ -92,8 +111,8 @@ export const MealCard: React.FC<MealCardProps> = ({
     // 탄수화물 
     if (hasValue(meal.carbs)) {
       const carbsValue = meal.carbs * 4; // 1g = 4kcal
-      if (hasValue(meal.sugar) && meal.sugar !== undefined && meal.sugar < meal.carbs) {
-        
+      // 키즈모드 식사가 아니고 당 정보가 있는 경우에만 탄수화물에서 당 분리
+      if (!isKidsMeal && hasValue(meal.sugar) && meal.sugar !== undefined && meal.sugar < meal.carbs) {
         const sugarValue = meal.sugar;
         const carbsWithoutSugar = Math.max(0, (meal.carbs - sugarValue) * 4);
         if (carbsWithoutSugar > 0) {
@@ -126,73 +145,87 @@ export const MealCard: React.FC<MealCardProps> = ({
 
     // 지방
     if (hasValue(meal.fat)) {
-      const saturatedFat = meal.saturatedFat || 0;
-      const transFat = meal.transFat || 0;
-      const fatWithoutSaturatedAndTrans = Math.max(0, meal.fat - saturatedFat - transFat);
-      
-      if (fatWithoutSaturatedAndTrans > 0) {
+      // 키즈모드 식사가 아닌 경우에만 포화지방과 트랜스지방 분리
+      if (!isKidsMeal) {
+        const saturatedFat = meal.saturatedFat || 0;
+        const transFat = meal.transFat || 0;
+        const fatWithoutSaturatedAndTrans = Math.max(0, meal.fat - saturatedFat - transFat);
+        
+        if (fatWithoutSaturatedAndTrans > 0) {
+          data.push({
+            name: '지방',
+            value: fatWithoutSaturatedAndTrans * 9, // 1g = 9kcal
+            color: '#F59E0B',
+            grams: fatWithoutSaturatedAndTrans
+          });
+        }
+      } else {
+        // 키즈모드 식사는 지방 전체 표시
         data.push({
           name: '지방',
-          value: fatWithoutSaturatedAndTrans * 9, // 1g = 9kcal
+          value: meal.fat * 9, // 1g = 9kcal
           color: '#F59E0B',
-          grams: fatWithoutSaturatedAndTrans
+          grams: meal.fat
         });
       }
     }
 
-    // 포화지방
-    if (hasValue(meal.saturatedFat)) {
-      const saturatedFatValue = meal.saturatedFat!;
-      data.push({
-        name: '포화지방',
-        value: saturatedFatValue * 9, // 1g = 9kcal
-        color: '#F97316',
-        grams: saturatedFatValue
-      });
-    }
+    // 키즈모드 식사가 아닌 경우에만 다른 영양소 추가
+    if (!isKidsMeal) {
+      // 포화지방
+      if (hasValue(meal.saturatedFat)) {
+        const saturatedFatValue = meal.saturatedFat!;
+        data.push({
+          name: '포화지방',
+          value: saturatedFatValue * 9, // 1g = 9kcal
+          color: '#F97316',
+          grams: saturatedFatValue
+        });
+      }
 
-    // 트랜스지방
-    if (hasValue(meal.transFat)) {
-      const transFatValue = meal.transFat!;
-      data.push({
-        name: '트랜스지방',
-        value: transFatValue * 9, // 1g = 9kcal
-        color: '#DC2626',
-        grams: transFatValue
-      });
-    }
+      // 트랜스지방
+      if (hasValue(meal.transFat)) {
+        const transFatValue = meal.transFat!;
+        data.push({
+          name: '트랜스지방',
+          value: transFatValue * 9, // 1g = 9kcal
+          color: '#DC2626',
+          grams: transFatValue
+        });
+      }
 
-    // 당
-    if (hasValue(meal.sugar)) {
-      const sugarValue = meal.sugar!;
-      data.push({
-        name: '당',
-        value: sugarValue * 4, // 1g = 4kcal
-        color: '#8B5CF6',
-        grams: sugarValue
-      });
-    }
+      // 당
+      if (hasValue(meal.sugar)) {
+        const sugarValue = meal.sugar!;
+        data.push({
+          name: '당',
+          value: sugarValue * 4, // 1g = 4kcal
+          color: '#8B5CF6',
+          grams: sugarValue
+        });
+      }
 
-    // 콜레스테롤
-    if (hasValue(meal.cholesterol)) {
-      data.push({
-        name: '콜레스테롤',
-        value: 0.001, // 칼로리 없음, 그래프에 표시하기 위한 최소값
-        color: '#A78BFA',
-        grams: typeof meal.cholesterol === 'number' ? meal.cholesterol : 0,
-        isNoCalorie: true 
-      });
-    }
+      // 콜레스테롤
+      if (hasValue(meal.cholesterol)) {
+        data.push({
+          name: '콜레스테롤',
+          value: 0.001, // 칼로리 없음, 그래프에 표시하기 위한 최소값
+          color: '#A78BFA',
+          grams: typeof meal.cholesterol === 'number' ? meal.cholesterol : 0,
+          isNoCalorie: true 
+        });
+      }
 
-    // 나트륨
-    if (hasValue(meal.sodium)) {
-      data.push({
-        name: '나트륨',
-        value: 0.001, // 칼로리 없음, 그래프에 표시하기 위한 최소값
-        color: '#60A5FA',
-        grams: typeof meal.sodium === 'number' ? meal.sodium : 0,
-        isNoCalorie: true 
-      });
+      // 나트륨
+      if (hasValue(meal.sodium)) {
+        data.push({
+          name: '나트륨',
+          value: 0.001, // 칼로리 없음, 그래프에 표시하기 위한 최소값
+          color: '#60A5FA',
+          grams: typeof meal.sodium === 'number' ? meal.sodium : 0,
+          isNoCalorie: true 
+        });
+      }
     }
 
     return data;
@@ -411,41 +444,46 @@ export const MealCard: React.FC<MealCardProps> = ({
                   amount={`${meal.fat}g`}
                   percentage={Math.round((meal.fat * 9) / 2000 * 100) + '%'}
                 />
-                {meal.saturatedFat !== undefined && (
-                  <NutrientRow 
-                    label="포화지방" 
-                    amount={`${meal.saturatedFat}g`}
-                    percentage={Math.round((meal.saturatedFat * 9) / 2000 * 100) + '%'}
-                    indent
-                  />
-                )}
-                {meal.transFat !== undefined && (
-                  <NutrientRow 
-                    label="트랜스지방" 
-                    amount={`${meal.transFat}g`}
-                    indent
-                  />
-                )}
-                {meal.cholesterol !== undefined && (
-                  <NutrientRow 
-                    label="콜레스테롤" 
-                    amount={`${meal.cholesterol}mg`}
-                    percentage={Math.round(meal.cholesterol / 300 * 100) + '%'}
-                  />
-                )}
-                {meal.sugar !== undefined && (
-                  <NutrientRow 
-                    label="당" 
-                    amount={`${meal.sugar}g`}
-                    percentage={Math.round((meal.sugar * 4) / 2000 * 100) + '%'}
-                  />
-                )}
-                {meal.sodium !== undefined && (
-                  <NutrientRow 
-                    label="나트륨" 
-                    amount={`${meal.sodium}mg`}
-                    percentage={Math.round(meal.sodium / 2000 * 100) + '%'}
-                  />
+                {/* 키즈모드에서 추가한 식사가 아닌 경우에만 다른 영양소 표시 */}
+                {!isKidsMeal && (
+                  <>
+                    {meal.saturatedFat !== undefined && meal.saturatedFat !== null && (
+                      <NutrientRow 
+                        label="포화지방" 
+                        amount={`${meal.saturatedFat}g`}
+                        percentage={Math.round((meal.saturatedFat * 9) / 2000 * 100) + '%'}
+                        indent
+                      />
+                    )}
+                    {meal.transFat !== undefined && meal.transFat !== null && (
+                      <NutrientRow 
+                        label="트랜스지방" 
+                        amount={`${meal.transFat}g`}
+                        indent
+                      />
+                    )}
+                    {meal.cholesterol !== undefined && meal.cholesterol !== null && (
+                      <NutrientRow 
+                        label="콜레스테롤" 
+                        amount={`${meal.cholesterol}mg`}
+                        percentage={Math.round(meal.cholesterol / 300 * 100) + '%'}
+                      />
+                    )}
+                    {meal.sugar !== undefined && meal.sugar !== null && (
+                      <NutrientRow 
+                        label="당" 
+                        amount={`${meal.sugar}g`}
+                        percentage={Math.round((meal.sugar * 4) / 2000 * 100) + '%'}
+                      />
+                    )}
+                    {meal.sodium !== undefined && meal.sodium !== null && (
+                      <NutrientRow 
+                        label="나트륨" 
+                        amount={`${meal.sodium}mg`}
+                        percentage={Math.round(meal.sodium / 2000 * 100) + '%'}
+                      />
+                    )}
+                  </>
                 )}
               </div>
             </div>
