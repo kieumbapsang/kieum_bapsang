@@ -165,8 +165,13 @@ export function ProfilePage({ onLogout }: ProfilePageProps) {
         weight: parseFloat(profileForm.weight) || null,
       };
 
-      // API 호출 (user.updateProfile이 있다면 사용, 없으면 getProfile 후 수정)
-      // 일단 userInfo만 업데이트하고 나중에 API 추가 가능
+      // API 호출하여 서버에 프로필 업데이트
+      const { error } = await api.user.updateProfile(parseInt(userId), updateData);
+      if (error) {
+        throw new Error(error);
+      }
+
+      // 성공 시 로컬 상태도 업데이트
       updateUserInfo({
         name: profileForm.name,
         age: profileForm.age,
@@ -174,22 +179,51 @@ export function ProfilePage({ onLogout }: ProfilePageProps) {
         weight: profileForm.weight,
       });
       
+      console.log('프로필이 성공적으로 수정되었습니다.');
       setIsProfileEditOpen(false);
     } catch (error) {
       console.error('프로필 저장 실패:', error);
+      alert('프로필 수정에 실패했습니다. 다시 시도해주세요.');
     }
   };
 
   // 보호자 정보 수정 저장
-  const handleGuardianSave = () => {
-    updateUserInfo({
-      guardian: {
-        name: guardianForm.name,
-        phone: guardianForm.phone,
-        relationship: guardianForm.relationship,
-      },
-    });
-    setIsGuardianEditOpen(false);
+  const handleGuardianSave = async () => {
+    try {
+      const userId = localStorage.getItem('user_id');
+      if (!userId) {
+        console.error('사용자 ID가 없습니다.');
+        return;
+      }
+
+      // API에 보호자 정보 업데이트 요청
+      const updateData = {
+        protector_name: guardianForm.name || null,
+        protector_phone: guardianForm.phone || null,
+        protector_relationship: guardianForm.relationship || null,
+      };
+
+      // API 호출하여 서버에 보호자 정보 업데이트
+      const { error } = await api.user.updateProfile(parseInt(userId), updateData);
+      if (error) {
+        throw new Error(error);
+      }
+
+      // 성공 시 로컬 상태도 업데이트
+      updateUserInfo({
+        guardian: {
+          name: guardianForm.name,
+          phone: guardianForm.phone,
+          relationship: guardianForm.relationship,
+        },
+      });
+      
+      console.log('보호자 정보가 성공적으로 수정되었습니다.');
+      setIsGuardianEditOpen(false);
+    } catch (error) {
+      console.error('보호자 정보 저장 실패:', error);
+      alert('보호자 정보 수정에 실패했습니다. 다시 시도해주세요.');
+    }
   };
 
   // 모드 변경 핸들러
