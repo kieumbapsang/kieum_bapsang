@@ -28,9 +28,20 @@ const convertApiMealToMealRecord = (apiMeal: any): MealRecord => {
     hour12: false
   });
 
-  const intakeDate = apiMeal.intake_date ? 
-    (typeof apiMeal.intake_date === 'string' ? apiMeal.intake_date : apiMeal.intake_date.split('T')[0]) :
-    toKoreanDateString(getKoreanDate());
+  // intake_date 처리: ISO 형식(YYYY-MM-DD 또는 YYYY-MM-DDTHH:mm:ss)에서 날짜만 추출
+  let intakeDate: string;
+  if (apiMeal.intake_date) {
+    if (typeof apiMeal.intake_date === 'string') {
+      // ISO 형식에서 날짜 부분만 추출 (YYYY-MM-DD)
+      intakeDate = apiMeal.intake_date.split('T')[0];
+    } else {
+      // Date 객체인 경우
+      intakeDate = toKoreanDateString(new Date(apiMeal.intake_date));
+    }
+  } else {
+    // intake_date가 없으면 오늘 날짜 사용
+    intakeDate = toKoreanDateString(getKoreanDate());
+  }
 
   return {
     id: apiMeal.id.toString(),
@@ -57,10 +68,11 @@ const convertApiMealToMealRecord = (apiMeal: any): MealRecord => {
 export const HomePage: React.FC<HomePageProps> = ({ onNavigateToStore }) => {
   const [isManualInputOpen, setIsManualInputOpen] = useState(false);
   const [meals, setMeals] = useState<MealRecord[]>([]);
+  const [allMeals, setAllMeals] = useState<MealRecord[]>([]); // 뱃지용 전체 식사 데이터
   const [loading, setLoading] = useState(true);
   const randomTip = useMemo(() => getRandomTip(), []);
 
-  // 실제 식사 데이터 가져오기
+  // 오늘 날짜의 식사 데이터 가져오기 (RecentMeals용)
   const fetchMeals = async () => {
     try {
       setLoading(true);
@@ -101,8 +113,55 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigateToStore }) => {
     }
   };
 
+  // 모든 식사 데이터 가져오기 (뱃지용)
+  const fetchAllMeals = async () => {
+    try {
+      const userId = localStorage.getItem('user_id');
+      if (!userId) {
+        console.warn('사용자 ID가 없습니다.');
+        setAllMeals([]);
+        return;
+      }
+
+      const { data, error } = await api.meals.getAllMeals(parseInt(userId) as any);
+
+      if (error) {
+        console.error('❌ 전체 식사 데이터 가져오기 실패:', error);
+        setAllMeals([]);
+        return;
+      }
+
+      console.log('🎯 HomePage - API 응답 데이터:', data);
+      
+      if (data && data.meals) {
+        console.log('🎯 HomePage - 원본 식사 데이터 개수:', data.meals.length, '개');
+        const convertedMeals = data.meals.map(convertApiMealToMealRecord);
+        console.log('🎯 HomePage - 변환된 식사 데이터 개수:', convertedMeals.length, '개');
+        console.log('🎯 HomePage - 첫 번째 식사 데이터 샘플:', convertedMeals[0]);
+        console.log('🎯 HomePage - 마지막 식사 데이터 샘플:', convertedMeals[convertedMeals.length - 1]);
+        
+        // 날짜별로 그룹화하여 확인
+        const mealsByDate: Record<string, number> = {};
+        convertedMeals.forEach((meal: MealRecord) => {
+          const date = meal.date || '날짜 없음';
+          mealsByDate[date] = (mealsByDate[date] || 0) + 1;
+        });
+        console.log('🎯 HomePage - 날짜별 식사 기록:', mealsByDate);
+        
+        setAllMeals(convertedMeals);
+      } else {
+        console.warn('⚠️ HomePage - 전체 식사 데이터가 없습니다. data:', data);
+        setAllMeals([]);
+      }
+    } catch (error) {
+      console.error('전체 식사 데이터 가져오기 중 오류:', error);
+      setAllMeals([]);
+    }
+  };
+
   useEffect(() => {
     fetchMeals();
+    fetchAllMeals();
   }, []);
 
   const handleAddMeal = async (meal: MealRecord) => {
@@ -135,6 +194,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigateToStore }) => {
 
       // 식사 목록 다시 불러오기
       await fetchMeals();
+      await fetchAllMeals();
       
       // 기본 모드에 데이터 변경 알림
       window.dispatchEvent(new CustomEvent('mealDataChanged', { 
@@ -167,6 +227,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigateToStore }) => {
 
       // 식사 목록 다시 불러오기
       await fetchMeals();
+      await fetchAllMeals();
       
       // 기본 모드에 데이터 변경 알림
       window.dispatchEvent(new CustomEvent('mealDataChanged', { 
@@ -188,6 +249,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigateToStore }) => {
 
       // 식사 목록 다시 불러오기
       await fetchMeals();
+      await fetchAllMeals();
       
       // 기본 모드에 데이터 변경 알림
       const today = toKoreanDateString(getKoreanDate());
@@ -234,7 +296,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigateToStore }) => {
       )}
 
       {/* Achievement Badges */}
-      <AchievementSection meals={meals} />
+      <AchievementSection meals={allMeals} />
 
       {/* Health Tip Section */}
       <div className="bg-gradient-to-r from-blue-50 to-green-50 rounded-3xl p-6">

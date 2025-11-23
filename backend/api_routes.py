@@ -16,6 +16,8 @@ from datetime import date, datetime
 from typing import Optional, List
 import random
 import json
+from enum import Enum
+from my_badges import my_badges_service
 
 # 라우터 생성
 router = APIRouter()
@@ -316,7 +318,7 @@ def crop_image_by_roi(image_data, x, y, w, h):
 # ===== 식사 관련 API 엔드포인트 =====
 
 @router.get("/meals/{target_date}")
-async def get_meals_by_date(target_date: date, user_id: Optional[int] = None):
+async def get_meals_by_date(target_date: date, user_id: Optional[int] = Query(None, description="사용자 ID")):
     """특정 날짜의 식사 목록 조회"""
     try:
         print(f"🔍 식사 목록 조회 요청: {target_date}, user_id: {user_id}")
@@ -504,6 +506,63 @@ async def get_meal_summary(target_date: date, user_id: Optional[int] = None):
         })
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"식사 요약 조회 실패: {str(e)}")
+
+@router.get("/meals/all")
+async def get_all_meals(user_id: Optional[str] = Query(None, description="사용자 ID")):
+    """사용자의 모든 식사 목록 조회"""
+    try:
+        print(f"🔍 전체 식사 목록 조회 요청: user_id={user_id}, type={type(user_id)}")
+        
+        # user_id를 정수로 변환 (None이거나 빈 문자열인 경우 None 유지)
+        user_id_int: Optional[int] = None
+        if user_id is not None and user_id.strip():
+            try:
+                user_id_int = int(user_id)
+                print(f"🔄 user_id를 정수로 변환: {user_id_int}")
+            except (ValueError, TypeError) as e:
+                print(f"⚠️ user_id 변환 실패: {user_id}, 에러: {e}")
+                raise HTTPException(status_code=422, detail=f"잘못된 user_id 형식: {user_id}. 정수여야 합니다.")
+        
+        meals = meals_service.get_all_meals(user_id_int)
+        print(f"✅ 조회된 식사 수: {len(meals)}")
+        
+        # JSON 직렬화 문제 해결을 위해 직접 변환
+        meals_data = []
+        for meal in meals:
+            meals_data.append({
+                "id": meal.id,
+                "user_id": meal.user_id,
+                "food_name": meal.food_name,
+                "nutrition_data": {
+                    "amount": meal.nutrition_data.amount,
+                    "calories": meal.nutrition_data.calories,
+                    "protein": meal.nutrition_data.protein,
+                    "carbs": meal.nutrition_data.carbs,
+                    "fat": meal.nutrition_data.fat,
+                    "sodium": meal.nutrition_data.sodium,
+                    "sugar": meal.nutrition_data.sugar,
+                    "cholesterol": meal.nutrition_data.cholesterol,
+                    "saturated_fat": meal.nutrition_data.saturated_fat,
+                    "trans_fat": meal.nutrition_data.trans_fat
+                },
+                "intake_date": meal.intake_date.isoformat(),
+                "created_at": meal.created_at.isoformat()
+            })
+        
+        response_data = {
+            "success": True,
+            "message": "전체 식사 목록 조회 성공",
+            "data": {
+                "meals": meals_data
+            }
+        }
+        
+        return JSONResponse(content=response_data)
+    except Exception as e:
+        print(f"❌ 전체 식사 목록 조회 에러: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"전체 식사 목록 조회 실패: {str(e)}")
 
 # ===== 영양소 비교 관련 API 엔드포인트 =====
 
@@ -1104,3 +1163,54 @@ async def get_stores_by_districts(
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"가맹점 목록 조회 실패: {str(e)}")
+
+@router.get("/my-badges/{user_id}")
+async def get_my_badges(user_id: int):
+   """보유하고 있는 배지 조회"""
+   try:
+      result = my_badges_service.get_my_badges(user_id)
+
+      return ApiResponse(
+         success=True,
+         message="보유하고 있는 배지 조회 성공",
+         data=result,
+      )
+   except Exception as e:
+      print(f"보유하고 있는 배지 조회 에러: {str(e)}")
+      import traceback
+      traceback.print_exc()
+      raise HTTPException(status_code=500, detail=f"보유하고 있는 배지 조회 실패: {str(e)}")
+
+@router.get("/my-badges/count/{user_id}")
+async def get_my_badges_count(user_id: int):
+   """보유하고 있는 배지 수 조회"""
+   try:
+      result = my_badges_service.get_my_badges_count(user_id)
+
+      return ApiResponse(
+         success=True,
+         message="보유하고 있는 배지 수 조회 성공",
+         data=result,
+      )
+   except Exception as e:
+      print(f"보유하고 있는 배지 수 조회 에러: {str(e)}")
+      import traceback
+      traceback.print_exc()
+      raise HTTPException(status_code=500, detail=f"보유하고 있는 배지 수 조회 실패: {str(e)}")
+
+@router.get("/my-badges/stats/{user_id}")
+async def get_meal_stats(user_id: int):
+   """식사 통계 조회 (총 기록 수, 연속 일수)"""
+   try:
+      result = my_badges_service.get_meal_stats(user_id)
+
+      return ApiResponse(
+         success=True,
+         message="식사 통계 조회 성공",
+         data=result,
+      )
+   except Exception as e:
+      print(f"식사 통계 조회 에러: {str(e)}")
+      import traceback
+      traceback.print_exc()
+      raise HTTPException(status_code=500, detail=f"식사 통계 조회 실패: {str(e)}")

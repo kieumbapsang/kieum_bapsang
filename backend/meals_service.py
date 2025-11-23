@@ -177,6 +177,30 @@ class MealsService:
         except Exception as e:
             raise Exception(f"식사 조회 실패: {str(e)}")
     
+    def get_all_meals(self, user_id: Optional[int] = None) -> List[Meal]:
+        """사용자의 모든 식사 목록 조회"""
+        try:
+            with self.db.get_connection() as conn:
+                with conn.cursor() as cursor:
+                    if user_id:
+                        cursor.execute("""
+                            SELECT id, user_id, food_name, nutrition_data, intake_date, created_at
+                            FROM nutrition_records 
+                            WHERE user_id = %s
+                            ORDER BY intake_date DESC, created_at DESC
+                        """, (user_id,))
+                    else:
+                        cursor.execute("""
+                            SELECT id, user_id, food_name, nutrition_data, intake_date, created_at
+                            FROM nutrition_records 
+                            ORDER BY intake_date DESC, created_at DESC
+                        """)
+                    
+                    meals_data = cursor.fetchall()
+                    return [self._dict_to_meal(row) for row in meals_data]
+        except Exception as e:
+            raise Exception(f"전체 식사 목록 조회 실패: {str(e)}")
+    
     def _dict_to_meal(self, row: dict) -> Meal:
         """데이터베이스 행을 Meal 객체로 변환"""
         # JSONB 데이터를 파싱

@@ -254,62 +254,41 @@ export function ProfilePage({ onLogout }: ProfilePageProps) {
 
         // 배지 수 가져오기
         try {
-          const response = await fetch(`http://localhost:8000/my-badges/count/${userId}`);
-          if (response.ok) {
-            const result = await response.json();
-            if (result.data && typeof result.data.count === 'number') {
-              setBadges(result.data.count);
-            }
+          const { data, error } = await api.badges.getMyBadgesCount(parseInt(userId));
+          if (error) {
+            console.warn('배지 수 가져오기 실패:', error);
+            setBadges(0);
+          } else if (data && typeof data.count === 'number') {
+            setBadges(data.count);
           }
         } catch (error) {
           console.warn('배지 수 가져오기 실패:', error);
           setBadges(0);
         }
 
-        // 식사 기록 수와 연속 일수 계산
+        // 식사 기록 수와 연속 일수 계산 - my_badges 서비스 사용
         try {
-          const today = new Date();
-          let totalMeals = 0;
-          let consecutiveDays = 0;
-          let currentDate = new Date(today);
-          let foundFirstMeal = false;
+          const { data, error } = await api.badges.getMealStats(parseInt(userId));
           
-          // 최근 30일 동안의 데이터 확인
-          for (let i = 0; i < 30; i++) {
-            const dateString = currentDate.toISOString().split('T')[0];
-            const { data: mealsData } = await api.meals.getMealsByDate(dateString, parseInt(userId) as any);
-            
-            if (mealsData && mealsData.meals) {
-              const dayMealCount = mealsData.meals.length;
-              totalMeals += dayMealCount;
-              
-              // 연속 일수 계산 (오늘부터 역순으로)
-              if (dayMealCount > 0) {
-                if (!foundFirstMeal) {
-                  foundFirstMeal = true;
-                }
-                consecutiveDays++;
-              } else {
-                // 식사가 없는 날이면 연속이 끊김
-                if (foundFirstMeal) {
-                  break;
-                }
-              }
-            } else {
-              // 데이터가 없으면 연속이 끊김
-              if (foundFirstMeal) {
-                break;
-              }
-            }
-            
-            // 이전 날짜로 이동
-            currentDate.setDate(currentDate.getDate() - 1);
+          if (error) {
+            console.warn('식사 통계 가져오기 실패:', error);
+            setMealRecords(0);
+            setStreakDays(0);
+            return;
           }
-          
-          setMealRecords(totalMeals);
-          setStreakDays(consecutiveDays);
+
+          if (data) {
+            setMealRecords(data.total_meals || 0);
+            setStreakDays(data.consecutive_days || 0);
+            console.log('✅ ProfilePage - 식사 기록 수:', data.total_meals, ', 연속 일수:', data.consecutive_days);
+          } else {
+            setMealRecords(0);
+            setStreakDays(0);
+          }
         } catch (error) {
           console.warn('식사 통계 가져오기 실패:', error);
+          setMealRecords(0);
+          setStreakDays(0);
         }
       } catch (error) {
         console.error('활동 통계 가져오기 실패:', error);
@@ -319,6 +298,17 @@ export function ProfilePage({ onLogout }: ProfilePageProps) {
     };
 
     fetchActivityStats();
+
+    // 식사 데이터 변경 이벤트 리스너
+    const handleMealDataChanged = () => {
+      fetchActivityStats();
+    };
+
+    window.addEventListener('mealDataChanged', handleMealDataChanged);
+
+    return () => {
+      window.removeEventListener('mealDataChanged', handleMealDataChanged);
+    };
   }, []);
 
   const name = userInfo.name || '친구';

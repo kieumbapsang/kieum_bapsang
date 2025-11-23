@@ -7,7 +7,7 @@ from __future__ import annotations
 from pydantic import BaseModel
 from datetime import date, datetime
 from typing import Optional, Dict, Any, List
-
+from enum import Enum
 
 class NutritionData(BaseModel):
     """영양소 데이터 모델"""
@@ -81,3 +81,22 @@ class GoogleAuthRequest(BaseModel):
     email: str
     name: str
     google_id: str
+    
+class MyBadgeResponse(BaseModel):
+   """나의 뱃지 응답 모델"""
+   badges: List[BadgeType]
+
+class MyBadgeCountResponse(BaseModel):
+   """나의 뱃지 수 응답 모델"""
+   count: int
+
+class BadgeType(Enum):
+   THREE_MEALS_A_DAY = "THREE_MEALS_A_DAY" 
+   FIVE_MEALS_A_DAY = "FIVE_MEALS_A_DAY" 
+   SEVEN_MEALS_A_DAY = "SEVEN_MEALS_A_DAY"
+   FOURTEEN_MEALS_A_DAY = "FOURTEEN_MEALS_A_DAY" 
+   FIRST_MEAL = "FIRST_MEAL" 
+   FOUR_MEALS = "FOUR_MEALS"
+   SEVEN_MORNING_MEALS = "SEVEN_MORNING_MEALS"
+   SEVEN_LUNCH_MEALS = "SEVEN_LUNCH_MEALS"
+   SEVEN_DINNER_MEALS = "SEVEN_DINNER_MEALS"

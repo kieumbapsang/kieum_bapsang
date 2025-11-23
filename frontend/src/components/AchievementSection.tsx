@@ -10,10 +10,11 @@
  * - 패턴 뱃지 (3개): 아침, 점심, 저녁 패턴
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Card } from './ui/Card';
 import { Trophy, Flame, LucideIcon, Target, Coffee, Utensils, Moon, Sparkles } from 'lucide-react';
 import { MealRecord } from './RecentMeals';
+import { api } from '../api/client';
 
 /**
  * 배지 데이터 인터페이스
@@ -52,7 +53,7 @@ interface Achievement {
 
 interface AchievementSectionProps {
   /**
-   * 식사 기록 목록
+   * 식사 기록 목록 (총 기록 수 계산용)
    */
   meals: MealRecord[];
 }
@@ -73,8 +74,12 @@ const getMealPeriod = (time: string): '아침' | '점심' | '저녁' => {
  * 날짜 문자열을 Date 객체로 변환
  */
 const parseDate = (dateString: string): Date => {
-  const [year, month, day] = dateString.split('-').map(Number);
-  return new Date(year, month - 1, day);
+  // YYYY-MM-DD 형식 또는 ISO 형식 처리
+  const dateStr = dateString.split('T')[0]; // ISO 형식인 경우 T 이전 부분만 사용
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  date.setHours(0, 0, 0, 0); // 시간을 0으로 설정하여 날짜만 비교
+  return date;
 };
 
 /**
@@ -102,75 +107,80 @@ const formatDate = (date: Date): string => {
  * ```
  */
 export const AchievementSection: React.FC<AchievementSectionProps> = ({ meals }) => {
+  const [badgeTypes, setBadgeTypes] = useState<string[]>([]);
+  const [totalMealCount, setTotalMealCount] = useState<number>(0);
+  const [loading, setLoading] = useState(true);
+
+  // 백엔드에서 뱃지 데이터와 총 식사 기록 수 가져오기
+  useEffect(() => {
+    const fetchBadgesAndStats = async () => {
+      try {
+        const userId = localStorage.getItem('user_id');
+        if (!userId) {
+          console.warn('사용자 ID가 없습니다.');
+          setBadgeTypes([]);
+          setTotalMealCount(0);
+          setLoading(false);
+          return;
+        }
+
+        // 뱃지 데이터와 식사 통계를 병렬로 가져오기
+        const [badgesResult, statsResult] = await Promise.all([
+          api.badges.getMyBadges(parseInt(userId)),
+          api.badges.getMealStats(parseInt(userId))
+        ]);
+
+        // 뱃지 데이터 처리
+        if (badgesResult.error) {
+          console.error('뱃지 조회 실패:', badgesResult.error);
+          setBadgeTypes([]);
+        } else if (badgesResult.data && badgesResult.data.badges) {
+          const badgeStrings = badgesResult.data.badges.map((badge: string) => badge);
+          console.log('✅ 백엔드에서 받은 뱃지:', badgeStrings);
+          setBadgeTypes(badgeStrings);
+        } else {
+          setBadgeTypes([]);
+        }
+
+        // 총 식사 기록 수 처리
+        if (statsResult.error) {
+          console.error('식사 통계 조회 실패:', statsResult.error);
+          setTotalMealCount(meals.length); // 폴백: 전달받은 meals 길이 사용
+        } else if (statsResult.data && typeof statsResult.data.total_meals === 'number') {
+          console.log('✅ 백엔드에서 받은 총 식사 기록 수:', statsResult.data.total_meals);
+          setTotalMealCount(statsResult.data.total_meals);
+        } else {
+          setTotalMealCount(meals.length); // 폴백: 전달받은 meals 길이 사용
+        }
+      } catch (error) {
+        console.error('뱃지/통계 조회 중 오류:', error);
+        setBadgeTypes([]);
+        setTotalMealCount(meals.length); // 폴백: 전달받은 meals 길이 사용
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBadgesAndStats();
+  }, [meals]); // meals가 변경되면 다시 조회
+
   // 뱃지 상태 계산
   const badgeStates = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    // 첫 식사 기록 뱃지
-    const hasFirstMeal = meals.length > 0;
-
-    // 총 기록 수
-    const totalMealCount = meals.length;
-
-    // 날짜별 식사 기록 집계
-    const mealsByDate: Record<string, boolean> = {};
-    const mealsByDateAndPeriod: Record<string, Record<string, boolean>> = {};
-
-    meals.forEach((meal) => {
-      // 날짜 추출 (date 필드가 있으면 사용, 없으면 오늘 날짜로 처리)
-      const mealDate = meal.date 
-        ? parseDate(meal.date)
-        : today;
-      const dateKey = formatDate(mealDate);
-      mealsByDate[dateKey] = true;
-
-      // 시간대별 기록
-      const period = getMealPeriod(meal.time);
-      if (!mealsByDateAndPeriod[dateKey]) {
-        mealsByDateAndPeriod[dateKey] = {};
-      }
-      mealsByDateAndPeriod[dateKey][period] = true;
-    });
-
-    // 연속 기록 계산 (최근 N일간 매일 식사 기록 존재)
-    const checkStreak = (days: number): boolean => {
-      for (let i = 0; i < days; i++) {
-        const checkDate = new Date(today);
-        checkDate.setDate(checkDate.getDate() - i);
-        const dateKey = formatDate(checkDate);
-        if (!mealsByDate[dateKey]) {
-          return false;
-        }
-      }
-      return true;
-    };
-
-    // 패턴 뱃지 계산 (특정 시간대에 7일 연속 기록)
-    const checkPattern = (period: '아침' | '점심' | '저녁'): boolean => {
-      for (let i = 0; i < 7; i++) {
-        const checkDate = new Date(today);
-        checkDate.setDate(checkDate.getDate() - i);
-        const dateKey = formatDate(checkDate);
-        if (!mealsByDateAndPeriod[dateKey]?.[period]) {
-          return false;
-        }
-      }
-      return true;
-    };
+    // 백엔드에서 받은 뱃지 타입을 기반으로 상태 계산
+    const hasBadge = (badgeType: string) => badgeTypes.includes(badgeType);
 
     return {
-      streak_3: checkStreak(3),
-      streak_5: checkStreak(5),
-      streak_7: checkStreak(7),
-      streak_14: checkStreak(14),
-      first_meal: hasFirstMeal,
-      total_count: totalMealCount,
-      breakfast_pattern: checkPattern('아침'),
-      lunch_pattern: checkPattern('점심'),
-      dinner_pattern: checkPattern('저녁'),
+      streak_3: hasBadge('THREE_MEALS_A_DAY'),
+      streak_5: hasBadge('FIVE_MEALS_A_DAY'),
+      streak_7: hasBadge('SEVEN_MEALS_A_DAY'),
+      streak_14: hasBadge('FOURTEEN_MEALS_A_DAY'),
+      first_meal: hasBadge('FIRST_MEAL'),
+      total_count: totalMealCount, // 백엔드에서 가져온 총 식사 기록 수 사용
+      breakfast_pattern: hasBadge('SEVEN_MORNING_MEALS'),
+      lunch_pattern: hasBadge('SEVEN_LUNCH_MEALS'),
+      dinner_pattern: hasBadge('SEVEN_DINNER_MEALS'),
     };
-  }, [meals]);
+  }, [badgeTypes, totalMealCount]);
 
   // 배지 목록 정의
   const achievements: Achievement[] = [
