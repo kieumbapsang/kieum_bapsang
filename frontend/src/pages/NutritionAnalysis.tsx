@@ -559,7 +559,7 @@ export const NutritionAnalysisPage: React.FC = () => {
           >
             {userStats.weight > 0 && userStats.height > 0 ? (
               <>
-                <div className="text-center space-y-2 mb-4">
+                <div className="text-center space-y-2 mb-6">
                   <div className="text-lg">
                     신체질량지수(BMI)는 <span className="font-bold text-lg" style={{ color: bmiColor }}>{bmi}</span> 로 
                     '<span className="font-bold" style={{ color: bmiColor }}>{bmiStatus}</span>' 입니다.
@@ -569,7 +569,43 @@ export const NutritionAnalysisPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="relative">
+                <div className="relative mt-4">
+                  {bmi > 0 && (
+                    <div
+                      className="absolute top-0 flex flex-col items-center z-10"
+                      style={{
+                        left: `${(() => {
+                          const visualRatios = [35, 25, 15, 25];
+                          
+                          if (bmi < 18.5) {
+                            return (bmi / 18.5) * 35;
+                          } else if (bmi < 23) {
+                            const rangeStart = 35;
+                            const rangeWidth = 25;
+                            const bmiInRange = bmi - 18.5;
+                            const rangeRatio = bmiInRange / (23 - 18.5);
+                            return rangeStart + (rangeRatio * rangeWidth);
+                          } else if (bmi < 25) {
+                            const rangeStart = 35 + 25;
+                            const rangeWidth = 15;
+                            const bmiInRange = bmi - 23;
+                            const rangeRatio = bmiInRange / (25 - 23);
+                            return rangeStart + (rangeRatio * rangeWidth);
+                          } else {
+                            const rangeStart = 35 + 25 + 15;
+                            const rangeWidth = 25;
+                            const bmiInRange = bmi - 25;
+                            const rangeRatio = Math.min(bmiInRange / (35 - 25), 1);
+                            return rangeStart + (rangeRatio * rangeWidth);
+                          }
+                        })()}%`,
+                        transform: 'translateX(-50%) translateY(-100%)',
+                      }}
+                    >
+                      <div className="text-xl text-gray-800 font-bold leading-none">▼</div>
+                    </div>
+                  )}
+                  
                   <div className="h-12 bg-gray-200 rounded-lg overflow-hidden relative">
                     {bmiRanges.map((range, index) => {
                       const visualRatios = [35, 25, 15, 25];
@@ -606,14 +642,6 @@ export const NutritionAnalysisPage: React.FC = () => {
                         </div>
                       );
                     })}
-                    
-                    <div
-                      className="absolute top-0 w-0 h-0 border-l-6 border-r-6 border-b-6 border-l-transparent border-r-transparent border-b-black"
-                      style={{
-                        left: `${Math.min((bmi / 30) * 100, 95)}%`,
-                        transform: 'translateX(-50%)',
-                      }}
-                    />
                   </div>
                   
                   <div className="relative text-xs text-gray-500 mt-2 mb-2">
