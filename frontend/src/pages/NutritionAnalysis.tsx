@@ -407,7 +407,7 @@ export const NutritionAnalysisPage: React.FC = () => {
           avg = 1; // (18세까지, 19세 모두 동일)
         }
       } else if (nutrient === '콜레스테롤') {
-        avg = 300; // (19세 이상 기준)
+        avg = 170; // (19세 이하 기준)
       }
     } else {
       const excelNutrientNames = excelNutrientMap[nutrient] || [nutrient];
