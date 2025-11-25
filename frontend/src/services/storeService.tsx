@@ -1,6 +1,27 @@
 import { Store } from '../components/ui/kakaoMap';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+// API 기본 URL 설정 (환경 변수 또는 자동 감지)
+const getApiBaseUrl = () => {
+  // 환경 변수가 있으면 사용
+  if (process.env.REACT_APP_API_URL) {
+    return process.env.REACT_APP_API_URL;
+  }
+  
+  // 현재 호스트에서 포트만 변경 (모바일 접속 시 자동으로 IP 주소 사용)
+  const hostname = window.location.hostname;
+  const port = process.env.REACT_APP_API_PORT || '8000';
+  
+  // localhost가 아니면 (IP 주소로 접속한 경우) 같은 IP 사용
+  if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+    return `http://${hostname}:${port}`;
+  }
+  
+  // 기본값
+  return `http://localhost:${port}`;
+};
+
+const API_BASE_URL = getApiBaseUrl();
+console.log('🔗 Store Service API Base URL:', API_BASE_URL);
 
 // 모든 매장 데이터 가져오기 (시도/시군구 필터링 없이)
 export const getAllStores = async (): Promise<Store[]> => {
