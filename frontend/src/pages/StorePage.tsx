@@ -14,13 +14,12 @@ import {
   Phone,
   Filter,
 } from "lucide-react";
-import { KakaoMapForStores } from "../components/KakaoMapForStores";
+import { KakaoMap, Store } from '../components/ui/kakaoMap';
 import { Character } from "../components/Character";
 import { useState, useMemo, useEffect } from "react";
 import { getRandomTip } from "../utils/randomTips";
 import { useUser } from '../contexts/UserContext';
 import { getStoresByDistrict, getAllStores, getStoresByCity } from '../services/storeService';
-import { Store } from '../components/ui/kakaoMap';
 import { api } from '../api/client';
 
 type CityKey = '서울특별시' | '부산광역시' | '대구광역시' | '인천광역시' | '광주광역시' | '대전광역시' | '울산광역시' | '세종특별자치시' | '경기도' | '강원특별자치도' | '충청북도' | '충청남도' | '경상남도' | '경상북도' | '전북특별자치도';
@@ -75,6 +74,7 @@ export function StorePage() {
   const [isAddressLoaded, setIsAddressLoaded] = useState<boolean>(false);
   const [allStores, setAllStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedStoreId, setSelectedStoreId] = useState<number | null>(null);
 
   // 서버에서 사용자 프로필 가져오기 (최신 주소 정보)
   useEffect(() => {
@@ -394,21 +394,19 @@ export function StorePage() {
 
       {/* Kakao Map */}
       <Card className="p-5 border-0 shadow-lg bg-gradient-to-br from-blue-100 to-cyan-100 rounded-3xl">
-        <KakaoMapForStores
-          stores={filteredStores.map(store => ({
-            id: store.id.toString(),
-            name: store.name,
-            category: "",
-            address: store.address,
-            lat: store.lat,
-            lng: store.lng,
-          }))}
-          center={filteredStores.length > 0 
-            ? { lat: filteredStores[0].lat, lng: filteredStores[0].lng }
-            : { lat: 37.4979, lng: 127.0276 }
-          }
-          onStoreClick={() => {}}
-        />
+        {selectedCity && (
+          <div className="h-64 relative bg-gray-100 rounded-lg overflow-hidden">
+            <KakaoMap
+              city={selectedCity}
+              districts={selectedDistricts}
+              stores={filteredStores}
+              onStoreClick={(store) => {
+                setSelectedStoreId(store.id);
+              }}
+              selectedStoreId={selectedStoreId}
+            />
+          </div>
+        )}
         <div className="mt-4 bg-white/60 backdrop-blur-sm p-3 rounded-2xl text-center">
           <p className="text-sm text-gray-600">
             지도를 터치하면 자세한 위치를 볼 수 있어요
@@ -440,7 +438,15 @@ export function StorePage() {
             {filteredStores.map((store) => (
               <Card
                 key={store.id}
-                className="p-5 border-0 shadow-lg hover:shadow-xl transition-all duration-300 bg-white rounded-3xl hover:scale-[1.01]"
+                className="p-5 border-0 shadow-lg hover:shadow-xl transition-all duration-300 bg-white rounded-3xl hover:scale-[1.01] cursor-pointer"
+                onClick={() => {
+                  setSelectedStoreId(store.id);
+                  // 지도가 있는 위치로 스크롤
+                  const mapElement = document.querySelector('.h-64');
+                  if (mapElement) {
+                    mapElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }
+                }}
               >
                 <div className="space-y-3">
                   <div className="flex items-start justify-between">
