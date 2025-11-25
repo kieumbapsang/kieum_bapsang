@@ -55,6 +55,9 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
   const [validationError, setValidationError] = useState<string>('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [amountUnit, setAmountUnit] = useState<string>('g');
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const videoRef = React.useRef<HTMLVideoElement>(null);
 
   
   // 영양성분 입력 필드용 별도 상태 (문자열로 처리)
@@ -287,6 +290,68 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
     setShowResults(false);
   };
 
+  // 카메라 스트림 시작
+  const startCamera = async () => {
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }, // 후면 카메라 우선
+        audio: false
+      });
+      setStream(mediaStream);
+      setIsCameraOpen(true);
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+      }
+    } catch (error) {
+      console.error('카메라 접근 실패:', error);
+      alert('카메라 접근 권한이 필요합니다. 브라우저 설정에서 카메라 권한을 허용해주세요.');
+    }
+  };
+
+  // 카메라 스트림 중지
+  const stopCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
+    }
+    setIsCameraOpen(false);
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  };
+
+  // 카메라로 사진 촬영
+  const capturePhoto = () => {
+    if (videoRef.current) {
+      const canvas = document.createElement('canvas');
+      canvas.width = videoRef.current.videoWidth;
+      canvas.height = videoRef.current.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(videoRef.current, 0, 0);
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const file = new File([blob], 'camera-photo.jpg', { type: 'image/jpeg' });
+            setSelectedImage(file);
+            
+            // 이미지 미리보기 생성
+            const reader = new FileReader();
+            reader.onload = (event) => {
+              setImagePreview(event.target?.result as string);
+            };
+            reader.readAsDataURL(file);
+            
+            // OCR 처리
+            processImageWithOCR(file);
+            
+            // 카메라 종료
+            stopCamera();
+          }
+        }, 'image/jpeg', 0.9);
+      }
+    }
+  };
+
   useEffect(() => {
     if (!isOpen) {
       setSelectedImage(null);
@@ -296,6 +361,8 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
       setOcrError('');
       setValidationError('');
       setAmountUnit('g');
+      setIsCameraOpen(false);
+      stopCamera();
       setNutritionInputs({
         calories: '',
         protein: '',
@@ -697,7 +764,43 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
               </label>
               <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
                 <div className="space-y-1 text-center w-full">
-                  {selectedImage ? (
+                  {isCameraOpen ? (
+                    <div className="space-y-3">
+                      <div className="relative">
+                        <video
+                          ref={videoRef}
+                          autoPlay
+                          playsInline
+                          className="mx-auto h-64 w-full max-w-sm object-cover rounded-lg border-2 border-gray-300"
+                        />
+                        <button
+                          type="button"
+                          onClick={stopCamera}
+                          className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-2"
+                        >
+                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                      <div className="flex gap-3 justify-center">
+                        <button
+                          type="button"
+                          onClick={capturePhoto}
+                          className="px-6 py-2 bg-green-500 text-white rounded-lg font-medium hover:bg-green-600"
+                        >
+                          📷 사진 촬영
+                        </button>
+                        <button
+                          type="button"
+                          onClick={stopCamera}
+                          className="px-6 py-2 bg-gray-500 text-white rounded-lg font-medium hover:bg-gray-600"
+                        >
+                          취소
+                        </button>
+                      </div>
+                    </div>
+                  ) : selectedImage ? (
                     <div className="space-y-3">
                       <div className="relative">
                         {imagePreview ? (
@@ -753,6 +856,17 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
                         />
                       </svg>
                       <div className="flex flex-col gap-3 items-center mt-4">
+                        <button
+                          type="button"
+                          onClick={startCamera}
+                          className="inline-flex items-center px-4 py-2 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                        >
+                          <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          카메라로 촬영
+                        </button>
                         <label
                           htmlFor="file-upload"
                           className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 cursor-pointer"
@@ -766,6 +880,7 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
                             name="file-upload"
                             type="file"
                             accept="image/*"
+                            capture="environment"
                             className="sr-only"
                             onChange={(e) => {
                               if (e.target.files?.[0]) {

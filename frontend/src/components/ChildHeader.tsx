@@ -102,12 +102,12 @@ export function ChildHeader() {
           <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 border-2 border-white/30">
             <div className="flex items-center justify-between mb-2">
               <span className="text-white">오늘의 미션</span>
-              <span className="text-white bg-white/20 px-3 py-1 rounded-full text-sm">3/5</span>
+              {/* <span className="text-white bg-white/20 px-3 py-1 rounded-full text-sm">3/5</span> */}
             </div>
             <div className="w-full bg-white/30 rounded-full h-3 overflow-hidden">
               <div
                 className="bg-gradient-to-r from-yellow-300 to-yellow-400 h-3 rounded-full transition-all duration-500 shadow-inner"
-                style={{ width: "60%" }}
+                style={{ width: "80%" }}
               />
             </div>
             <p className="text-white/90 text-sm mt-2">채소 2가지 더 먹으면 배지를 받을 수 있어요!</p>
