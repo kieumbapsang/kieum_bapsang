@@ -30,9 +30,25 @@ export function KakaoMapForStores({ stores, center, onStoreClick }: KakaoMapForS
 
   // 지도 초기화 및 마커 추가 함수
   const initializeMap = () => {
-    if (!mapContainer.current || !window.kakao || !window.kakao.maps) return;
+    console.log('지도 초기화 함수 호출');
+    console.log('mapContainer.current:', !!mapContainer.current);
+    console.log('window.kakao:', !!window.kakao);
+    console.log('window.kakao.maps:', !!(window.kakao && window.kakao.maps));
+    
+    if (!mapContainer.current) {
+      console.error('mapContainer가 없습니다');
+      setError("지도 컨테이너를 찾을 수 없습니다.");
+      return;
+    }
+    
+    if (!window.kakao || !window.kakao.maps) {
+      console.error('카카오맵 SDK가 로드되지 않았습니다');
+      setError("카카오맵 SDK가 로드되지 않았습니다.");
+      return;
+    }
 
     try {
+      console.log('지도 생성 시작');
       const centerPosition = center || { lat: 37.4979, lng: 127.0276 };
 
       // 지도 생성
@@ -116,22 +132,38 @@ export function KakaoMapForStores({ stores, center, onStoreClick }: KakaoMapForS
   };
 
   useEffect(() => {
-    // 이미 로드되어 있으면 바로 초기화
-    if (window.kakao && window.kakao.maps) {
-      initializeMap();
+    console.log('카카오맵 초기화 시작');
+    console.log('window.kakao 상태:', !!window.kakao);
+    console.log('window.kakao.maps 상태:', !!(window.kakao && window.kakao.maps));
+    
+    // 이미 로드되어 있고 maps가 있으면 바로 초기화
+    if (window.kakao && window.kakao.maps && window.kakao.maps.load) {
+      console.log('카카오맵 SDK 이미 로드됨, 바로 초기화');
+      window.kakao.maps.load(() => {
+        initializeMap();
+      });
       return;
     }
 
     // 이미 스크립트가 추가되어 있는지 확인
     const existingScript = document.querySelector('script[src*="dapi.kakao.com/v2/maps/sdk.js"]');
     if (existingScript) {
+      console.log('카카오맵 스크립트 이미 존재, 로드 대기 중...');
+      let retryCount = 0;
+      const maxRetries = 50; // 5초 대기
+      
       const checkKakaoLoaded = () => {
-        if (window.kakao && window.kakao.maps) {
+        if (window.kakao && window.kakao.maps && window.kakao.maps.load) {
+          console.log('카카오맵 SDK 로드 완료, 초기화 시작');
           window.kakao.maps.load(() => {
             initializeMap();
           });
-        } else {
+        } else if (retryCount < maxRetries) {
+          retryCount++;
           setTimeout(checkKakaoLoaded, 100);
+        } else {
+          console.error('카카오맵 SDK 로드 타임아웃');
+          setError("카카오맵 SDK 로드 시간이 초과되었습니다. 네트워크를 확인해주세요.");
         }
       };
       checkKakaoLoaded();
@@ -139,21 +171,36 @@ export function KakaoMapForStores({ stores, center, onStoreClick }: KakaoMapForS
     }
 
     // 카카오맵 API 키 (환경 변수에서 가져오기)
-    const KAKAO_MAP_API_KEY = process.env.REACT_APP_KAKAO_MAP_API_KEY || 'c44dac15778d3b96e883cc105172b982';
+    const KAKAO_MAP_API_KEY = process.env.REACT_APP_KAKAO_MAP_API_KEY || '';
+    
+    // 프로토콜 명시 (HTTP/HTTPS 자동 감지)
+    const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+    const scriptUrl = `${protocol}//dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_MAP_API_KEY}&autoload=false`;
+    
+    console.log('카카오맵 스크립트 로드 시작:', scriptUrl);
     
     // 카카오맵 API 스크립트 로드
     const script = document.createElement("script");
-    script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_MAP_API_KEY}&autoload=false`;
+    script.src = scriptUrl;
     script.async = true;
+    script.defer = true;
 
     script.onload = () => {
-      window.kakao.maps.load(() => {
-        initializeMap();
-      });
+      console.log('카카오맵 스크립트 로드 완료');
+      if (window.kakao && window.kakao.maps && window.kakao.maps.load) {
+        window.kakao.maps.load(() => {
+          console.log('카카오맵 maps.load 완료, 초기화 시작');
+          initializeMap();
+        });
+      } else {
+        console.error('window.kakao.maps가 없습니다');
+        setError("카카오맵 SDK가 제대로 로드되지 않았습니다.");
+      }
     };
 
-    script.onerror = () => {
-      setError("카카오맵 API를 불러올 수 없습니다. API 키를 확인해주세요.");
+    script.onerror = (err) => {
+      console.error('카카오맵 스크립트 로드 실패:', err);
+      setError("카카오맵 API를 불러올 수 없습니다. API 키와 네트워크를 확인해주세요.");
     };
 
     document.head.appendChild(script);
