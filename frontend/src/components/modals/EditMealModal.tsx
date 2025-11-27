@@ -4,6 +4,7 @@ import { Button } from '../ui/Button';
 import { Character } from '../Character';
 import { MealRecord } from '../RecentMeals';
 import { Upload, Image as ImageIcon, X } from 'lucide-react';
+import { api } from '../../api/client';
 
 interface EditMealModalProps {
   open: boolean;
@@ -29,6 +30,8 @@ export const EditMealModal: React.FC<EditMealModalProps> = ({
   const [amountUnit, setAmountUnit] = useState<string>('g');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isProcessingOCR, setIsProcessingOCR] = useState(false);
+  const [ocrError, setOcrError] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -50,6 +53,98 @@ export const EditMealModal: React.FC<EditMealModalProps> = ({
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const processImageWithOCR = async (file: File) => {
+    setIsProcessingOCR(true);
+    setOcrError('');
+
+    try {
+      const result = await api.ocr.uploadImage(file, false, null);
+      
+      if (result.error) {
+        setOcrError(result.error);
+        return;
+      }
+
+      if (result.data.success) {
+        // 영양성분 정보가 있으면 자동으로 입력 필드에 채우기
+        if (result.data.nutrition_info) {
+          const nutrition = result.data.nutrition_info;
+          
+          // 영양성분 값을 처리하는 헬퍼 함수 (소수점 유지)
+          const processNutritionValue = (value: any): string => {
+            // "-" 또는 "정보없음"은 0으로 처리
+            if (value === '정보없음' || value === null || value === undefined || value === '-' || value === '--') {
+              return '0';
+            }
+            const num = typeof value === 'string' ? parseFloat(value) : value;
+            if (isNaN(num)) {
+              return '0';
+            }
+            // 소수점이 있으면 그대로 유지, 없으면 정수로 표시
+            if (Number.isInteger(num)) {
+              return num.toString();
+            } else {
+              return num.toFixed(1).replace(/\.?0+$/, '');
+            }
+          };
+
+          // 영양성분 입력 필드에 값 설정
+          setFormData(prev => ({
+            ...prev,
+            calories: processNutritionValue(nutrition.칼로리),
+            protein: processNutritionValue(nutrition.단백질),
+            carbs: processNutritionValue(nutrition.탄수화물),
+            fat: processNutritionValue(nutrition.지방),
+          }));
+
+          // 총 내용량을 양 필드에 자동 입력 (인식한 단위에 따라 처리)
+          if (nutrition.총내용량 && typeof nutrition.총내용량 === 'object' && nutrition.총내용량.amount) {
+            const totalContent = nutrition.총내용량;
+            const originalAmount = totalContent.amount;
+            const amountStr = String(originalAmount);
+            let amountValue = parseFloat(amountStr);
+            
+            if (isNaN(amountValue)) {
+              console.warn(`⚠️ 총 내용량 파싱 실패: ${originalAmount}`);
+              amountValue = 0;
+            }
+            
+            let recognizedUnit = totalContent.unit || 'g';
+            
+            // 단위 정규화
+            if (recognizedUnit === 'ml' || recognizedUnit === 'mL' || recognizedUnit === 'ML') {
+              recognizedUnit = 'ml';
+            } else if (recognizedUnit === 'kg') {
+              amountValue = amountValue * 1000;
+              recognizedUnit = 'g';
+            } else if (recognizedUnit === 'L' || recognizedUnit === 'l') {
+              amountValue = amountValue * 1000;
+              recognizedUnit = 'ml';
+            } else {
+              recognizedUnit = 'g';
+            }
+            
+            setAmountUnit(recognizedUnit || 'g');
+            setFormData(prev => ({ ...prev, grams: amountValue.toString() }));
+            console.log(`📦 총 내용량을 양(${recognizedUnit}) 필드에 입력: ${amountValue}${recognizedUnit}`);
+          }
+
+          // 음식 이름도 OCR 결과에서 가져오기 (있는 경우)
+          if (nutrition.음식명) {
+            setFormData(prev => ({ ...prev, foodName: nutrition.음식명 }));
+          }
+        }
+      } else {
+        setOcrError(result.data.error || 'OCR 처리에 실패했습니다.');
+      }
+    } catch (error) {
+      setOcrError('OCR 처리 중 오류가 발생했습니다.');
+      console.error('OCR 처리 오류:', error);
+    } finally {
+      setIsProcessingOCR(false);
+    }
+  };
+
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -67,6 +162,9 @@ export const EditMealModal: React.FC<EditMealModalProps> = ({
         setImagePreview(reader.result as string);
       };
       reader.readAsDataURL(file);
+
+      // OCR 처리
+      processImageWithOCR(file);
     }
   };
 
@@ -285,6 +383,21 @@ export const EditMealModal: React.FC<EditMealModalProps> = ({
             {/* Photo Upload Section */}
             <div className="space-y-4">
               <h3 className="text-sm font-semibold text-gray-700">사진 추가 (선택)</h3>
+              
+              {/* OCR 처리 중 로딩 표시 */}
+              {isProcessingOCR && (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
+                  <p className="text-sm text-blue-700">영양성분표를 분석하는 중...</p>
+                </div>
+              )}
+
+              {/* OCR 에러 표시 */}
+              {ocrError && !isProcessingOCR && (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+                  <p className="text-xs text-red-700">⚠️ {ocrError}</p>
+                </div>
+              )}
               
               {imagePreview ? (
                 <div className="relative">
