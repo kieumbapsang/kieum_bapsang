@@ -184,6 +184,7 @@ const generateAlerts = (summary: any, averageNutritionByAge?: any[] | null, user
   const fatAvg = averageMap['지방']?.value;
 
   // 칼로리: 연령대 평균 대비 80% 미만 또는 120% 초과 시 알림
+  let calorieAlertAdded = false;
   if (typeof energyAvg === 'number') {
     if (total_calories < energyAvg * 0.8) {
       alerts.push({
@@ -191,12 +192,14 @@ const generateAlerts = (summary: any, averageNutritionByAge?: any[] | null, user
         type: 'warning',
         message: `칼로리 섭취가 연령대 평균의 80% 미만입니다. (${formatInt(total_calories)}/${formatInt(energyAvg)}kcal)`
       });
+      calorieAlertAdded = true;
     } else if (total_calories > energyAvg * 1.2) {
       alerts.push({
         id: 'calorie-high',
         type: 'info',
         message: `칼로리 섭취가 연령대 평균을 초과했습니다. (${formatInt(total_calories)}/${formatInt(energyAvg)}kcal)`
       });
+      calorieAlertAdded = true;
     }
   }
 
@@ -233,30 +236,39 @@ const generateAlerts = (summary: any, averageNutritionByAge?: any[] | null, user
     }
   }
   
-  // 참고: 기존 하드코드 목표값 로직은 평균값이 없을 때만 백업용으로 사용하도록 유지
-  if (!energyAvg || !proteinAvg || !carbsAvg || !fatAvg) {
+  // 참고: 기존 하드코드 목표값 로직은 평균값이 없을 때만 백업용으로 사용
+  // 칼로리: 연령대 평균값이 없을 때만 백업값 사용
+  if (!calorieAlertAdded && typeof energyAvg !== 'number') {
     const calorieGoal = 2000;
-    const proteinGoal = 80; // g
-    const carbsGoal = 250; // g
     if (total_calories < calorieGoal * 0.8) {
       alerts.push({
         id: 'calorie-low-fallback',
         type: 'warning',
-        message: `오늘 칼로리 섭취량이 목표의 80% 미만입니다. (${total_calories}/${calorieGoal}kcal)`
+        message: `오늘 칼로리 섭취량이 목표의 80% 미만입니다. (${formatInt(total_calories)}/${formatInt(calorieGoal)}kcal)`
       });
     }
-    if (typeof total_protein === 'number' && total_protein < proteinGoal * 0.7) {
+  }
+  
+  // 단백질: 평균값이 없을 때만 백업값 사용
+  if (typeof proteinAvg !== 'number' && typeof total_protein === 'number') {
+    const proteinGoal = 80; // g
+    if (total_protein < proteinGoal * 0.7) {
       alerts.push({
         id: 'protein-low-fallback',
         type: 'warning',
-        message: `단백질 섭취량이 부족합니다. (${total_protein.toFixed(1)}/${proteinGoal}g)`
+        message: `단백질 섭취량이 부족합니다. (${formatGrams1(total_protein)}/${formatGrams1(proteinGoal)}g)`
       });
     }
-    if (typeof total_carbs === 'number' && total_carbs > carbsGoal * 1.2) {
+  }
+  
+  // 탄수화물: 평균값이 없을 때만 백업값 사용
+  if (typeof carbsAvg !== 'number' && typeof total_carbs === 'number') {
+    const carbsGoal = 250; // g
+    if (total_carbs > carbsGoal * 1.2) {
       alerts.push({
         id: 'carbs-high-fallback',
         type: 'info',
-        message: `탄수화물 섭취량이 목표를 초과했습니다. (${total_carbs.toFixed(1)}/${carbsGoal}g)`
+        message: `탄수화물 섭취량이 목표를 초과했습니다. (${formatGrams1(total_carbs)}/${formatGrams1(carbsGoal)}g)`
       });
     }
   }
