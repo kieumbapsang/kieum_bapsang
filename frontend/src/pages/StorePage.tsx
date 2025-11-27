@@ -598,23 +598,23 @@ export function StorePage() {
                 </p>
               </div>
             )}
-          </div>
 
-          {/* Action Buttons */}
-          <div className="flex gap-3 pt-4 border-t">
-            <Button
-              variant="outline"
-              onClick={() => setIsRegionModalOpen(false)}
-              className="flex-1 h-12 rounded-xl border-2 border-gray-300 text-gray-700 hover:bg-gray-50"
-            >
-              취소
-            </Button>
-            <Button
-              onClick={handleConfirmRegion}
-              className="flex-1 h-12 rounded-xl bg-green-500 hover:bg-green-600 text-white"
-            >
-              선택 완료 ({tempSelectedDistricts.length > 0 ? tempSelectedDistricts.length + 1 : 1}개)
-            </Button>
+            {/* Action Buttons */}
+            <div className="flex gap-3 pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={() => setIsRegionModalOpen(false)}
+                className="flex-1 h-12 rounded-xl border-2 border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                취소
+              </Button>
+              <Button
+                onClick={handleConfirmRegion}
+                className="flex-1 h-12 rounded-xl bg-green-500 hover:bg-green-600 text-white"
+              >
+                선택 완료 ({tempSelectedDistricts.length > 0 ? tempSelectedDistricts.length + 1 : 1}개)
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
