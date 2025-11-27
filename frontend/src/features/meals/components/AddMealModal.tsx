@@ -108,7 +108,7 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
         if (result.data.nutrition_info) {
           const nutrition = result.data.nutrition_info;
           
-          // 영양성분 값을 처리하는 헬퍼 함수
+          // 영양성분 값을 처리하는 헬퍼 함수 (소수점 유지)
           const processNutritionValue = (value: any): string => {
             // "-" 또는 "정보없음"은 0으로 처리
             if (value === '정보없음' || value === null || value === undefined || value === '-' || value === '--') {
@@ -118,7 +118,13 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
             if (isNaN(num)) {
               return '0'; // 숫자가 아닌 경우도 0으로 처리
             }
-            return num.toString();
+            // 소수점이 있으면 그대로 유지, 없으면 정수로 표시
+            if (Number.isInteger(num)) {
+              return num.toString();
+            } else {
+              // 소수점 첫째 자리까지 표시 (필요시 조정 가능)
+              return num.toFixed(1).replace(/\.?0+$/, '');
+            }
           };
 
           // 영양성분 입력 필드에 값 설정
@@ -137,28 +143,40 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
           // 총 내용량을 양 필드에 자동 입력 (인식한 단위에 따라 처리)
           if (nutrition.총내용량 && typeof nutrition.총내용량 === 'object' && nutrition.총내용량.amount) {
             const totalContent = nutrition.총내용량;
-            let amountValue = totalContent.amount;
+            // 원본 값을 float로 명시적 변환하여 소수점 유지
+            const originalAmount = totalContent.amount;
+            const amountStr = String(originalAmount);
+            let amountValue = parseFloat(amountStr);
+            
+            // NaN 체크
+            if (isNaN(amountValue)) {
+              console.warn(`⚠️ 총 내용량 파싱 실패: ${originalAmount}, 타입: ${typeof originalAmount}`);
+              amountValue = 0;
+            }
+            
             let recognizedUnit = totalContent.unit || 'g';
             
             // 단위 정규화
             if (recognizedUnit === 'ml' || recognizedUnit === 'mL' || recognizedUnit === 'ML') {
               recognizedUnit = 'ml';
-              amountValue = totalContent.amount;
             } else if (recognizedUnit === 'kg') {
-              
-              amountValue = totalContent.amount * 1000;
+              // kg을 g으로 변환할 때도 소수점 유지
+              amountValue = amountValue * 1000;
               recognizedUnit = 'g';
             } else if (recognizedUnit === 'L' || recognizedUnit === 'l') {
-              amountValue = totalContent.amount * 1000;
+              // L을 ml로 변환할 때도 소수점 유지
+              amountValue = amountValue * 1000;
               recognizedUnit = 'ml';
             } else {
               recognizedUnit = 'g';
             }
+            
             // OCR로 인식한 단위가 없으면 기본값 'g' 설정
             setAmountUnit(recognizedUnit || 'g');
             
-            setMealData(prev => ({ ...prev, amount: Math.round(amountValue) }));
-            console.log(`📦 총 내용량을 양(${recognizedUnit}) 필드에 입력: ${Math.round(amountValue)}${recognizedUnit} (원본: ${totalContent.amount}${totalContent.unit || 'g'})`);
+            // 소수점 유지 (원본 값 그대로 사용)
+            setMealData(prev => ({ ...prev, amount: amountValue }));
+            console.log(`📦 총 내용량을 양(${recognizedUnit}) 필드에 입력: ${amountValue}${recognizedUnit} (원본: ${originalAmount}, 타입: ${typeof originalAmount}, 파싱: ${amountStr})`);
           }
         }
       } else {
@@ -425,7 +443,7 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
     const backendMealData = {
       food_name: mealData.name,
       nutrition_data: {
-        amount: parseInt(mealData.amount?.toString() || '0'),
+        amount: parseFloat(mealData.amount?.toString() || '0'), // 소수점 유지
         unit: amountUnit, // 단위 정보 추가
         calories: parseNutritionValue(nutritionInputs.calories),
         protein: parseNutritionValue(nutritionInputs.protein),
@@ -564,8 +582,9 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
                   id="amount"
                   value={mealData.amount || ''}
                   placeholder="0"
+                  step="0.1"
                   onChange={(e) => {
-                    const newAmount = Number(e.target.value) || 0;
+                    const newAmount = parseFloat(e.target.value) || 0;
                     
                     // foodService에서 선택된 음식을 찾아서 영양성분 재계산
                     if (mealData.foodId && isDataLoaded && newAmount > 0) {
