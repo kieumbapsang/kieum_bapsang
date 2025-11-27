@@ -500,19 +500,19 @@ export function StorePage() {
           <li className="flex items-start gap-2 bg-white/70 p-4 rounded-2xl hover:bg-white/90 transition-all">
             <span className="text-green-600">✓</span>
             <span className="text-sm text-gray-600">
-              가맹점에서 <strong>급식카드</strong>를 보여주고 결제하세요
+              가맹점 <strong>스티커</strong>를 찾아보세요!
             </span>
           </li>
           <li className="flex items-start gap-2 bg-white/70 p-4 rounded-2xl hover:bg-white/90 transition-all">
             <span className="text-green-600">✓</span>
             <span className="text-sm text-gray-600">
-              한 끼 <strong>최대 9,000원</strong>까지 사용할 수 있어요
+              카드를 <strong>소중히</strong> 간직하세요!
             </span>
           </li>
           <li className="flex items-start gap-2 bg-white/70 p-4 rounded-2xl hover:bg-white/90 transition-all">
             <span className="text-green-600">✓</span>
             <span className="text-sm text-gray-600">
-              영양 균형을 위해 <strong>식당</strong>을 자주 이용해보세요
+              <strong>건강한 음식</strong>을 골라보세요!
             </span>
           </li>
         </ul>
