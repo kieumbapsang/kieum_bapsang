@@ -681,7 +681,11 @@ export const NutritionAnalysisPage: React.FC = () => {
       {/* 오늘의 영양소 섭취량 분석 */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-lg pb-2">오늘의 영양소 섭취량 분석</CardTitle>
+          <CardTitle className="text-lg pb-2">
+            {isSameDay(selectedDate, getKoreanDate()) 
+              ? '오늘의 영양소 섭취량 분석' 
+              : `${format(selectedDate, 'yyyy년 M월 d일', { locale: ko })}의 섭취량 분석`}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <motion.div 
