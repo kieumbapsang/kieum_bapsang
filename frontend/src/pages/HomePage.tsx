@@ -272,13 +272,13 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigateToStore }) => {
           name="bunny"
           message={randomTip}
         />
-        <Button
+        {/* <Button
           onClick={() => setIsManualInputOpen(true)}
           className="gradient-green text-white rounded-2xl h-11 px-6 shadow-lg btn-animation flex-shrink-0"
         >
           <Plus className="w-5 h-5 mr-1" />
           직접추가
-        </Button>
+        </Button> */}
       </div>
 
       {/* Recent Meals */}
