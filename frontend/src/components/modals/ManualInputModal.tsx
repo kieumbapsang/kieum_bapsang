@@ -104,6 +104,7 @@ export const ManualInputModal: React.FC<ManualInputModalProps> = ({
       foodName: formData.foodName,
       calories: calories,
       grams: parseInt(formData.grams) || 0,
+      unit: 'g', // 기본값 g (키즈모드에서는 직접 입력 시 기본값)
       date: dateString,
       carbs: carbs,
       protein: protein,

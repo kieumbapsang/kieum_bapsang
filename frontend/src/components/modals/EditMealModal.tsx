@@ -48,6 +48,7 @@ export const EditMealModal: React.FC<EditMealModalProps> = ({
         calories: Number(formData.calories),
         grams: Number(formData.grams),
         time: formData.time,
+        unit: meal.unit || 'g', // 단위 정보 유지
       });
       onOpenChange(false);
     }

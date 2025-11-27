@@ -49,6 +49,7 @@ const convertApiMealToMealRecord = (apiMeal: any): MealRecord => {
     foodName: apiMeal.food_name,
     calories: apiMeal.nutrition_data?.calories || 0,
     grams: apiMeal.nutrition_data?.amount || 0,
+    unit: apiMeal.nutrition_data?.unit || 'g', // 단위 정보 포함
     date: intakeDate,
     carbs: apiMeal.nutrition_data?.carbs || 0,
     protein: apiMeal.nutrition_data?.protein || 0,
@@ -177,6 +178,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigateToStore }) => {
         food_name: meal.foodName,
         nutrition_data: {
           amount: meal.grams,
+          unit: meal.unit || 'g', // 단위 정보 포함
           calories: meal.calories,
           protein: meal.protein || 0,
           carbs: meal.carbs || 0,
@@ -211,6 +213,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigateToStore }) => {
         food_name: updatedMeal.foodName,
         nutrition_data: {
           amount: updatedMeal.grams,
+          unit: updatedMeal.unit || 'g', // 단위 정보 포함
           calories: updatedMeal.calories,
           protein: updatedMeal.protein || 0,
           carbs: updatedMeal.carbs || 0,

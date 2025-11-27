@@ -20,6 +20,7 @@ export interface MealRecord {
   foodName: string;
   calories: number;
   grams: number;
+  unit?: string; // 단위 (g, ml 등)
   date?: string; // YYYY-MM-DD 형식의 날짜 (선택적)
   carbs?: number; // 탄수화물 (g)
   protein?: number; // 단백질 (g)
@@ -128,7 +129,7 @@ export const RecentMeals: React.FC<RecentMealsProps> = ({
                 <div className="flex-1 min-w-0">
                   <p className="text-gray-900 font-medium mb-1">{meal.foodName}</p>
                   <p className="text-sm text-gray-500">
-                    {meal.grams}g · {meal.calories} kcal
+                    {meal.grams}{meal.unit || 'g'} · {meal.calories} kcal
                   </p>
                 </div>
                 
