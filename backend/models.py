@@ -12,6 +12,7 @@ from enum import Enum
 class NutritionData(BaseModel):
     """영양소 데이터 모델"""
     amount: float
+    unit: Optional[str] = 'g'  # 'g' 또는 'ml'
     calories: float
     protein: float
     carbs: float

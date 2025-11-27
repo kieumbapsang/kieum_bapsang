@@ -30,7 +30,8 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
       return { 
         ...initialMeal,
         name: initialMeal.name || '',
-        amount: initialMeal.amount || 0
+        amount: initialMeal.amount || 0,
+        unit: initialMeal.unit || 'g'
       };
     }
     return {
@@ -54,7 +55,7 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
   const [ocrError, setOcrError] = useState<string>('');
   const [validationError, setValidationError] = useState<string>('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [amountUnit, setAmountUnit] = useState<string>('g');
+  const [amountUnit, setAmountUnit] = useState<string>(''); // 기본값 없음, 사용자가 선택
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const videoRef = React.useRef<HTMLVideoElement>(null);
@@ -153,7 +154,8 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
             } else {
               recognizedUnit = 'g';
             }
-            setAmountUnit(recognizedUnit);
+            // OCR로 인식한 단위가 없으면 기본값 'g' 설정
+            setAmountUnit(recognizedUnit || 'g');
             
             setMealData(prev => ({ ...prev, amount: Math.round(amountValue) }));
             console.log(`📦 총 내용량을 양(${recognizedUnit}) 필드에 입력: ${Math.round(amountValue)}${recognizedUnit} (원본: ${totalContent.amount}${totalContent.unit || 'g'})`);
@@ -283,8 +285,10 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
       transFat: nutrients.transFat.toString()
     });
 
-    // 기본 단위 g
-    setAmountUnit('g');
+    // 음식 선택 시 기본 단위는 g (사용자가 변경 가능)
+    if (!amountUnit) {
+      setAmountUnit('g');
+    }
 
     setSearchQuery('');
     setShowResults(false);
@@ -360,7 +364,7 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
       setIsProcessingOCR(false);
       setOcrError('');
       setValidationError('');
-      setAmountUnit('g');
+      setAmountUnit('');
       setIsCameraOpen(false);
       stopCamera();
       setNutritionInputs({
@@ -380,6 +384,7 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
         name: initialMeal.name || '',
         amount: initialMeal.amount || 0
       });
+      setAmountUnit(initialMeal.unit || 'g');
       setNutritionInputs({
         calories: initialMeal.calories?.toString() || '',
         protein: initialMeal.protein?.toString() || '',
@@ -400,8 +405,8 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
     e.preventDefault();
     
     // 기본 필드 검증
-    if (!mealData.name || !mealData.amount) {
-      setValidationError('음식명과 양을 모두 입력해주세요.');
+    if (!mealData.name || !mealData.amount || !amountUnit) {
+      setValidationError('음식명, 양, 단위를 모두 입력해주세요.');
       return;
     }
 
@@ -421,6 +426,7 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
       food_name: mealData.name,
       nutrition_data: {
         amount: parseInt(mealData.amount?.toString() || '0'),
+        unit: amountUnit, // 단위 정보 추가
         calories: parseNutritionValue(nutritionInputs.calories),
         protein: parseNutritionValue(nutritionInputs.protein),
         carbs: parseNutritionValue(nutritionInputs.carbs),
@@ -549,9 +555,10 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
               />
             </div>
             <div>
-              <label htmlFor="amount" className="block text-sm font-medium text-gray-700">
-                양 ({amountUnit || 'g'})
+              <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-2">
+                양
               </label>
+              <div className="flex gap-2">
                 <input
                   type="number"
                   id="amount"
@@ -603,10 +610,22 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
                       setMealData(prev => ({ ...prev, amount: newAmount }));
                     }
                   }}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                  className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
                   min="0"
                   required
                 />
+                <select
+                  id="amountUnit"
+                  value={amountUnit}
+                  onChange={(e) => setAmountUnit(e.target.value)}
+                  className="w-20 rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                  required
+                >
+                  <option value="">선택</option>
+                  <option value="g">g</option>
+                  <option value="ml">ml</option>
+                </select>
+              </div>
             </div>
 
 

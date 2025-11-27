@@ -30,6 +30,7 @@ export type Meal = {
   id: string;
   name: string;
   amount: number;
+  unit?: string; // 'g' 또는 'ml'
   imageUrl?: string;
   foodId?: string;
   calories: number;
@@ -287,7 +288,7 @@ export const MealCard: React.FC<MealCardProps> = ({
               </span>
             )}
             <h3 className="font-medium text-gray-900">{meal.name}</h3>
-            <span className="text-sm text-gray-500">{meal.amount}g · {meal.calories}kcal</span>
+            <span className="text-sm text-gray-500">{meal.amount}{meal.unit || 'g'} · {meal.calories}kcal</span>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -424,7 +425,7 @@ export const MealCard: React.FC<MealCardProps> = ({
               <div className="bg-black text-white p-3">
                 <div className="text-sm">영양정보</div>
                 <div className="flex justify-between items-baseline mt-1">
-                  <div>1회 제공량 {meal.amount}g</div>
+                  <div>1회 제공량 {meal.amount}{meal.unit || 'g'}</div>
                   <div>{meal.calories}kcal</div>
                 </div>
               </div>

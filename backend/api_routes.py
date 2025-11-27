@@ -334,6 +334,7 @@ async def get_meals_by_date(target_date: date, user_id: Optional[int] = Query(No
                 "food_name": meal.food_name,
                 "nutrition_data": {
                     "amount": meal.nutrition_data.amount,
+                    "unit": meal.nutrition_data.unit or 'g',
                     "calories": meal.nutrition_data.calories,
                     "protein": meal.nutrition_data.protein,
                     "carbs": meal.nutrition_data.carbs,
@@ -397,6 +398,7 @@ async def create_meal(meal_data: MealCreate, user_id: Optional[int] = None):
                 "food_name": result.food_name,
                 "nutrition_data": {
                     "amount": result.nutrition_data.amount,
+                    "unit": result.nutrition_data.unit or 'g',
                     "calories": result.nutrition_data.calories,
                     "protein": result.nutrition_data.protein,
                     "carbs": result.nutrition_data.carbs,
@@ -437,6 +439,7 @@ async def update_meal(meal_id: int, meal_data: MealUpdate):
                 "food_name": result.food_name,
                 "nutrition_data": {
                     "amount": result.nutrition_data.amount,
+                    "unit": result.nutrition_data.unit or 'g',
                     "calories": result.nutrition_data.calories,
                     "protein": result.nutrition_data.protein,
                     "carbs": result.nutrition_data.carbs,
@@ -535,6 +538,7 @@ async def get_all_meals(user_id: Optional[str] = Query(None, description="사용
                 "food_name": meal.food_name,
                 "nutrition_data": {
                     "amount": meal.nutrition_data.amount,
+                    "unit": meal.nutrition_data.unit or 'g',
                     "calories": meal.nutrition_data.calories,
                     "protein": meal.nutrition_data.protein,
                     "carbs": meal.nutrition_data.carbs,

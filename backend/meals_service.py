@@ -60,8 +60,8 @@ class MealsService:
             
             with self.db.get_connection() as conn:
                 with conn.cursor() as cursor:
-                    # nutrition_data를 JSON으로 변환 (9개 영양소만)
-                    nutrition_json = meal_data.nutrition_data.dict()
+                    # nutrition_data를 JSON으로 변환 (unit 포함)
+                    nutrition_json = meal_data.nutrition_data.dict(exclude_unset=False)
                     
                     cursor.execute("""
                         INSERT INTO nutrition_records (
@@ -119,7 +119,7 @@ class MealsService:
                     
                     if meal_data.nutrition_data is not None:
                         update_fields.append("nutrition_data = %s")
-                        values.append(json.dumps(meal_data.nutrition_data.dict()))
+                        values.append(json.dumps(meal_data.nutrition_data.dict(exclude_unset=False)))
                     
                     if not update_fields:
                         raise Exception("수정할 필드가 없습니다")

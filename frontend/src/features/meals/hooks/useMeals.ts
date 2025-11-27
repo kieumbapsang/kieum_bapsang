@@ -21,6 +21,7 @@ const convertApiMealToMeal = (apiMeal: any): Meal => {
     id: apiMeal.id.toString(),
     name: apiMeal.food_name,
     amount: apiMeal.nutrition_data.amount || 0, // JSONB에서 amount 가져오기
+    unit: apiMeal.nutrition_data.unit || 'g', // JSONB에서 unit 가져오기 (없으면 기본값 'g')
     calories: apiMeal.nutrition_data.calories,
     protein: apiMeal.nutrition_data.protein,
     carbs: apiMeal.nutrition_data.carbs,
@@ -124,6 +125,7 @@ export const useMeals = () => {
         food_name: updatedMeal.name,
         nutrition_data: {
           amount: updatedMeal.amount,
+          unit: updatedMeal.unit || 'g', // 단위 정보 포함
           calories: updatedMeal.calories,
           protein: updatedMeal.protein,
           carbs: updatedMeal.carbs,
