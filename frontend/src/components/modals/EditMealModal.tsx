@@ -325,17 +325,33 @@ export const EditMealModal: React.FC<EditMealModalProps> = ({
         className="h-[90vh] rounded-t-3xl bg-white z-[100] w-full max-w-full"
         onPointerDownOutside={(e) => e.preventDefault()}
         onInteractOutside={(e) => e.preventDefault()}
-        style={{ touchAction: 'none', userSelect: 'none' }}
+        onDragStart={(e) => e.preventDefault()}
+        onDrag={(e) => e.preventDefault()}
+        onDragEnd={(e) => e.preventDefault()}
+        onTouchStart={(e) => {
+          // 모달 헤더나 빈 공간에서만 드래그 방지
+          const target = e.target as HTMLElement;
+          if (!target.closest('[data-scrollable]')) {
+            e.preventDefault();
+          }
+        }}
+        style={{ 
+          touchAction: 'none', 
+          userSelect: 'none'
+        } as React.CSSProperties}
       >
         <SheetHeader>
           <SheetTitle className="text-xl font-bold text-gray-900">식사 정보 수정</SheetTitle>
         </SheetHeader>
 
         <div 
+          data-scrollable
           className="mt-6 space-y-6 overflow-y-auto max-h-[calc(90vh-120px)]"
           style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }}
           onTouchStart={(e) => e.stopPropagation()}
           onTouchMove={(e) => e.stopPropagation()}
+          onDragStart={(e) => e.preventDefault()}
+          onDrag={(e) => e.preventDefault()}
         >
           {/* Character with tip */}
           <div className="flex justify-center">
@@ -590,6 +606,11 @@ export const EditMealModal: React.FC<EditMealModalProps> = ({
                     <p className="text-xs text-gray-400 mt-1">
                       PNG, JPG, GIF 최대 10MB
                     </p>
+                    <div className="mt-2 p-2 bg-yellow-50 rounded-lg border border-yellow-200">
+                      <p className="text-xs text-yellow-800">
+                        📸 촬영 팁: 밝은 곳에서 쫙 펴고, 흔들리지 않게 똑바로 찍어보세요!
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}

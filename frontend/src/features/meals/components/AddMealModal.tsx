@@ -821,6 +821,11 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
                           </svg>
                         </button>
                       </div>
+                      <div className="p-2 bg-yellow-50 rounded-lg border border-yellow-200 mb-2">
+                        <p className="text-xs text-yellow-800">
+                          📸 촬영 팁: 밝은 곳에서 평평하게 펼치고, 흔들림 없이 수직으로 촬영해주세요.
+                        </p>
+                      </div>
                       <div className="flex gap-3 justify-center">
                         <button
                           type="button"
@@ -928,6 +933,11 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
                         </label>
                       </div>
                       <p className="text-xs text-gray-500 mt-2">PNG, JPG, GIF up to 10MB</p>
+                      <div className="mt-2 p-2 bg-yellow-50 rounded-lg border border-yellow-200">
+                        <p className="text-xs text-yellow-800">
+                          📸 촬영 팁: 영양성분표가 잘 보이도록 확대해서 찍어주세요. 빛이 번지지 않도록 주의해주세요.
+                        </p>
+                      </div>
                       
                     </>
                   )}
