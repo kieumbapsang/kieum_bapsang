@@ -133,22 +133,24 @@ export const RecentMeals: React.FC<RecentMealsProps> = ({
                   </p>
                 </div>
                 
-                <div className="flex gap-1">
+                <div className="flex gap-3 flex-shrink-0">
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-8 w-8 p-0 rounded-full hover:bg-blue-100 hover:scale-110 active:scale-90 transition-transform duration-200"
+                    className="h-12 w-12 p-0 rounded-full bg-blue-50 hover:bg-blue-100 hover:scale-110 active:scale-90 transition-transform duration-200 border-2 border-blue-300 shadow-sm"
                     onClick={() => handleEdit(meal)}
+                    aria-label="수정"
                   >
-                    <Edit2 className="w-4 h-4 text-blue-600" />
+                    <Edit2 className="w-6 h-6 text-blue-600" />
                   </Button>
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-8 w-8 p-0 rounded-full hover:bg-red-100 hover:scale-110 active:scale-90 transition-transform duration-200"
+                    className="h-12 w-12 p-0 rounded-full bg-red-50 hover:bg-red-100 hover:scale-110 active:scale-90 transition-transform duration-200 border-2 border-red-300 shadow-sm"
                     onClick={() => setDeletingMealId(meal.id)}
+                    aria-label="삭제"
                   >
-                    <Trash2 className="w-4 h-4 text-red-600" />
+                    <Trash2 className="w-6 h-6 text-red-600" />
                   </Button>
                 </div>
               </div>
@@ -162,21 +164,31 @@ export const RecentMeals: React.FC<RecentMealsProps> = ({
         open={deletingMealId !== null}
         onOpenChange={(open: boolean) => !open && setDeletingMealId(null)}
       >
-        <AlertDialogContent className="rounded-3xl">
+        <AlertDialogContent className="rounded-3xl bg-white z-[100] max-w-md mx-4">
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
+            <AlertDialogTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
               <span className="text-2xl">🗑️</span>
               식사 기록 삭제
             </AlertDialogTitle>
-            <AlertDialogDescription>
-              이 식사 기록을 삭제하시겠어요? 삭제하면 되돌릴 수 없어요.
+            <AlertDialogDescription className="text-gray-700 mt-2">
+              {deletingMealId && (
+                <div className="bg-gray-50 rounded-xl p-4 mb-3">
+                  <p className="font-medium text-gray-900">
+                    {meals.find(m => m.id === deletingMealId)?.foodName}
+                  </p>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {meals.find(m => m.id === deletingMealId)?.grams}{meals.find(m => m.id === deletingMealId)?.unit || 'g'} · {meals.find(m => m.id === deletingMealId)?.calories} kcal
+                  </p>
+                </div>
+              )}
+              <p>이 식사 기록을 삭제하시겠어요? 삭제하면 되돌릴 수 없어요.</p>
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-xl">취소</AlertDialogCancel>
+          <AlertDialogFooter className="flex-row gap-3 mt-4">
+            <AlertDialogCancel className="rounded-xl flex-1 border-2 border-gray-300 text-gray-700 hover:bg-gray-50">취소</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deletingMealId && handleDelete(deletingMealId)}
-              className="bg-red-500 hover:bg-red-600 rounded-xl"
+              className="bg-red-500 hover:bg-red-600 rounded-xl flex-1 text-white"
             >
               삭제하기
             </AlertDialogAction>

@@ -24,6 +24,7 @@ export const ManualInputModal: React.FC<ManualInputModalProps> = ({
     carbs: '',
     fat: '',
   });
+  const [amountUnit, setAmountUnit] = useState<string>('g'); // 기본값 g
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -68,29 +69,28 @@ export const ManualInputModal: React.FC<ManualInputModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.foodName || !formData.grams) {
+    if (!formData.foodName || formData.grams === '' || formData.grams === null || formData.grams === undefined) {
+      alert('음식 이름과 양을 입력해주세요.');
       return;
     }
 
-    // 탄단지 입력값
+    // 탄단지 입력값 (공백 체크)
+    if (formData.carbs === '' || formData.protein === '' || formData.fat === '') {
+      alert('탄수화물, 단백질, 지방을 모두 입력해주세요.');
+      return;
+    }
+
     const carbs = parseFloat(formData.carbs) || 0;
     const protein = parseFloat(formData.protein) || 0;
     const fat = parseFloat(formData.fat) || 0;
 
-    // 칼로리 계산: 탄수화물 4kcal/g, 단백질 4kcal/g, 지방 9kcal/g
-    // 칼로리를 직접 입력했으면 그것을 사용, 아니면 탄단지로 계산
-    let calculatedCalories = 0;
-    if (carbs > 0 || protein > 0 || fat > 0) {
-      calculatedCalories = (carbs * 4) + (protein * 4) + (fat * 9);
-    }
-    
-    const calories = formData.calories ? parseInt(formData.calories) : Math.round(calculatedCalories);
-    
-    // 칼로리가 없으면 에러
-    if (!calories || calories === 0) {
-      alert('칼로리 또는 탄수화물/단백질/지방 중 하나를 입력해주세요.');
+    // 칼로리 입력값 (공백 체크)
+    if (formData.calories === '' || formData.calories === null || formData.calories === undefined) {
+      alert('칼로리를 입력해주세요.');
       return;
     }
+
+    const calories = parseInt(formData.calories) || 0;
 
     // 현재 시간 및 날짜 생성
     const now = new Date();
@@ -104,7 +104,7 @@ export const ManualInputModal: React.FC<ManualInputModalProps> = ({
       foodName: formData.foodName,
       calories: calories,
       grams: parseInt(formData.grams) || 0,
-      unit: 'g', // 기본값 g (키즈모드에서는 직접 입력 시 기본값)
+      unit: amountUnit || 'g', // 선택한 단위 사용
       date: dateString,
       carbs: carbs,
       protein: protein,
@@ -127,6 +127,7 @@ export const ManualInputModal: React.FC<ManualInputModalProps> = ({
       carbs: '',
       fat: '',
     });
+    setAmountUnit('g');
     setImagePreview(null);
     setSelectedFile(null);
     if (fileInputRef.current) {
@@ -145,6 +146,7 @@ export const ManualInputModal: React.FC<ManualInputModalProps> = ({
       carbs: '',
       fat: '',
     });
+    setAmountUnit('g');
     setImagePreview(null);
     setSelectedFile(null);
     if (fileInputRef.current) {
@@ -154,17 +156,28 @@ export const ManualInputModal: React.FC<ManualInputModalProps> = ({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="h-[90vh] rounded-t-3xl bg-white">
+      <SheetContent 
+        side="bottom" 
+        className="h-[90vh] rounded-t-3xl bg-white w-full max-w-full"
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+        style={{ touchAction: 'none', userSelect: 'none' }}
+      >
         <SheetHeader>
           <SheetTitle className="text-xl font-bold">식사 직접 입력</SheetTitle>
         </SheetHeader>
 
-        <div className="mt-6 space-y-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+        <div 
+          className="mt-6 space-y-6 overflow-y-auto max-h-[calc(90vh-120px)]"
+          style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }}
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+        >
           {/* Character with tip */}
           <div className="flex justify-center">
             <Character 
               name="carrot"
-              message="음식 정보를 입력해주세요! 영양소는 선택사항이에요 😊"
+              message="음식 정보를 입력해주세요! 😊"
               size="sm"
             />
           </div>
@@ -193,23 +206,35 @@ export const ManualInputModal: React.FC<ManualInputModalProps> = ({
 
               <div>
                 <label htmlFor="grams" className="block text-sm font-medium text-gray-700 mb-2">
-                  양 (g) ⚖️
+                  양 ⚖️
                 </label>
-                <input
-                  id="grams"
-                  name="grams"
-                  type="number"
-                  value={formData.grams}
-                  onChange={handleChange}
-                  className="input-field"
-                  placeholder="그램"
-                  required
-                />
+                <div className="flex gap-2">
+                  <input
+                    id="grams"
+                    name="grams"
+                    type="number"
+                    value={formData.grams}
+                    onChange={handleChange}
+                    className="input-field flex-1"
+                    placeholder="0"
+                    required
+                    step="0.1"
+                  />
+                  <select
+                    id="amountUnit"
+                    value={amountUnit}
+                    onChange={(e) => setAmountUnit(e.target.value)}
+                    className="px-4 py-2 border border-gray-300 rounded-md bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  >
+                    <option value="g">g</option>
+                    <option value="ml">ml</option>
+                  </select>
+                </div>
               </div>
               
               <div>
                 <label htmlFor="calories" className="block text-sm font-medium text-gray-700 mb-2">
-                  칼로리 🔥 (선택 - 탄단지 입력 시 자동 계산)
+                  칼로리 🔥
                 </label>
                 <input
                   id="calories"
@@ -218,26 +243,22 @@ export const ManualInputModal: React.FC<ManualInputModalProps> = ({
                   value={formData.calories}
                   onChange={handleChange}
                   className="input-field"
-                  placeholder="kcal (자동 계산됨)"
+                  placeholder="kcal"
+                  min="0"
                 />
-                {formData.carbs || formData.protein || formData.fat ? (
-                  <p className="text-xs text-green-600 mt-1">
-                    계산된 칼로리: {Math.round((parseFloat(formData.carbs || '0') * 4) + (parseFloat(formData.protein || '0') * 4) + (parseFloat(formData.fat || '0') * 9))} kcal
-                  </p>
-                ) : null}
               </div>
             </div>
 
-            {/* Optional Fields */}
+            {/* Required Nutrition Fields */}
             <div className="space-y-4">
               <h3 className="text-sm font-semibold text-gray-700">
-                영양 정보 (탄수화물, 단백질, 지방 입력 시 칼로리 자동 계산)
+                영양 정보
               </h3>
               
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label htmlFor="carbs" className="block text-xs font-medium text-gray-600 mb-1">
-                    탄수화물 (g)
+                  <label htmlFor="carbs" className="block text-xs font-medium text-gray-700 mb-1">
+                    탄수화물 (g) *
                   </label>
                   <input
                     id="carbs"
@@ -247,12 +268,14 @@ export const ManualInputModal: React.FC<ManualInputModalProps> = ({
                     onChange={handleChange}
                     className="input-field text-sm"
                     placeholder="0"
+                    min="0"
+                    step="0.1"
                   />
                 </div>
 
                 <div>
-                  <label htmlFor="protein" className="block text-xs font-medium text-gray-600 mb-1">
-                    단백질 (g)
+                  <label htmlFor="protein" className="block text-xs font-medium text-gray-700 mb-1">
+                    단백질 (g) *
                   </label>
                   <input
                     id="protein"
@@ -262,12 +285,14 @@ export const ManualInputModal: React.FC<ManualInputModalProps> = ({
                     onChange={handleChange}
                     className="input-field text-sm"
                     placeholder="0"
+                    min="0"
+                    step="0.1"
                   />
                 </div>
 
                 <div>
-                  <label htmlFor="fat" className="block text-xs font-medium text-gray-600 mb-1">
-                    지방 (g)
+                  <label htmlFor="fat" className="block text-xs font-medium text-gray-700 mb-1">
+                    지방 (g) *
                   </label>
                   <input
                     id="fat"
@@ -277,6 +302,8 @@ export const ManualInputModal: React.FC<ManualInputModalProps> = ({
                     onChange={handleChange}
                     className="input-field text-sm"
                     placeholder="0"
+                    min="0"
+                    step="0.1"
                   />
                 </div>
               </div>
