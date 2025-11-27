@@ -165,6 +165,19 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigateToStore }) => {
     fetchAllMeals();
   }, []);
 
+  // 식사 데이터 변경 이벤트 리스너
+  useEffect(() => {
+    const handleMealDataChanged = () => {
+      fetchMeals();
+      fetchAllMeals();
+    };
+
+    window.addEventListener('mealDataChanged', handleMealDataChanged);
+    return () => {
+      window.removeEventListener('mealDataChanged', handleMealDataChanged);
+    };
+  }, []);
+
   const handleAddMeal = async (meal: MealRecord) => {
     try {
       const userId = localStorage.getItem('user_id');

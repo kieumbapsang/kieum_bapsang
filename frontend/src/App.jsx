@@ -164,6 +164,7 @@ const KidsLayout = ({ children }) => {
               food_name: meal.foodName,
               nutrition_data: {
                 amount: meal.grams,
+                unit: meal.unit || 'g', // 단위 정보 포함
                 calories: meal.calories,
                 protein: meal.protein || 0,
                 carbs: meal.carbs || 0,
@@ -179,7 +180,7 @@ const KidsLayout = ({ children }) => {
               return;
             }
 
-            // 기본 모드에 데이터 변경 알림
+            // 키즈모드와 기본 모드에 데이터 변경 알림
             window.dispatchEvent(new CustomEvent('mealDataChanged', { 
               detail: { action: 'add', date: meal.date || toKoreanDateString(getKoreanDate()) }
             }));

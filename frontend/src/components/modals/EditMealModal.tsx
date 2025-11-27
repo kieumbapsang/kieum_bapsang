@@ -5,6 +5,13 @@ import { Character } from '../Character';
 import { MealRecord } from '../RecentMeals';
 import { Upload, Image as ImageIcon, X } from 'lucide-react';
 import { api } from '../../api/client';
+import { 
+  FoodNutrition, 
+  loadFoodData, 
+  searchFoodByName, 
+  getFoodById,
+  calculateNutrients 
+} from '../../services/foodService';
 
 interface EditMealModalProps {
   open: boolean;
@@ -32,7 +39,52 @@ export const EditMealModal: React.FC<EditMealModalProps> = ({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isProcessingOCR, setIsProcessingOCR] = useState(false);
   const [ocrError, setOcrError] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<FoodNutrition[]>([]);
+  const [showResults, setShowResults] = useState(false);
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const [selectedFoodId, setSelectedFoodId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 음식 데이터 로드
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        await loadFoodData();
+        setIsDataLoaded(true);
+      } catch (error) {
+        console.error('음식 데이터 로드 실패:', error);
+      }
+    };
+    loadData();
+  }, []);
+
+  // 검색 결과 업데이트
+  useEffect(() => {
+    if (searchQuery.trim() && isDataLoaded) {
+      const results = searchFoodByName(searchQuery, 20);
+      setSearchResults(results);
+      setShowResults(true);
+    } else {
+      setSearchResults([]);
+      setShowResults(false);
+    }
+  }, [searchQuery, isDataLoaded]);
+
+  // 외부 클릭 시 검색 결과 닫기
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('#search-container')) {
+        setShowResults(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   useEffect(() => {
     if (meal) {
@@ -48,9 +100,50 @@ export const EditMealModal: React.FC<EditMealModalProps> = ({
     }
   }, [meal]);
 
+  const handleFoodSelect = (food: FoodNutrition) => {
+    const nutrients = calculateNutrients(food, food.servingSize);
+    
+    // formData 업데이트
+    setFormData({
+      foodName: food.name,
+      calories: nutrients.calories.toString(),
+      grams: food.servingSize.toString(),
+      protein: nutrients.protein.toString(),
+      carbs: nutrients.carbs.toString(),
+      fat: nutrients.fat.toString(),
+    });
+
+    // 음식 선택 시 기본 단위는 g
+    if (!amountUnit) {
+      setAmountUnit('g');
+    }
+
+    setSelectedFoodId(food.id);
+    setSearchQuery('');
+    setShowResults(false);
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+
+    // 양이 변경되면 선택된 음식이 있으면 영양성분 재계산
+    if (name === 'grams' && selectedFoodId && isDataLoaded) {
+      const newAmount = parseFloat(value) || 0;
+      if (newAmount > 0) {
+        const selectedFood = getFoodById(selectedFoodId);
+        if (selectedFood) {
+          const nutrients = calculateNutrients(selectedFood, newAmount);
+          setFormData(prev => ({
+            ...prev,
+            calories: nutrients.calories.toString(),
+            protein: nutrients.protein.toString(),
+            carbs: nutrients.carbs.toString(),
+            fat: nutrients.fat.toString(),
+          }));
+        }
+      }
+    }
   };
 
   const processImageWithOCR = async (file: File) => {
@@ -259,6 +352,58 @@ export const EditMealModal: React.FC<EditMealModalProps> = ({
             <div className="space-y-4">
               {/* <h3 className="text-sm font-semibold text-gray-700">필수 정보</h3> */}
               
+              {/* 음식 검색 */}
+              <div>
+                <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-2">
+                  음식 검색 🔍
+                </label>
+                <div id="search-container" className="relative">
+                  <input
+                    type="text"
+                    id="search"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="input-field pr-10"
+                    placeholder="음식명을 입력하세요"
+                    autoComplete="off"
+                  />
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 right-0 px-3 flex items-center"
+                    onClick={() => setShowResults(true)}
+                  >
+                    <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </button>
+                  {showResults && searchResults.length > 0 && (
+                    <div className="absolute z-10 mt-1 w-full bg-white rounded-md shadow-lg max-h-60 overflow-auto border border-gray-200">
+                      <ul className="py-1">
+                        {searchResults.map(food => (
+                          <li
+                            key={food.id}
+                            className="px-4 py-2 hover:bg-green-50 cursor-pointer transition-colors"
+                            onClick={() => handleFoodSelect(food)}
+                          >
+                            <div className="font-medium text-gray-900">{food.name}</div>
+                            <div className="text-sm text-gray-500">
+                              {food.category} · {food.servingSize}g · {food.calories}kcal
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {showResults && searchResults.length === 0 && searchQuery.trim() !== '' && (
+                    <div className="absolute z-10 mt-1 w-full bg-white rounded-md shadow-lg border border-gray-200">
+                      <div className="px-4 py-3 text-sm text-gray-500">
+                        검색 결과가 없습니다.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div>
                 <label htmlFor="foodName" className="block text-sm font-medium text-gray-700 mb-2">
                   음식 이름 🍽️
