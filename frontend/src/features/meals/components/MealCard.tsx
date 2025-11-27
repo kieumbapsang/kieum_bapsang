@@ -120,7 +120,7 @@ export const MealCard: React.FC<MealCardProps> = ({
             name: '탄수화물',
             value: carbsWithoutSugar,
             color: '#3B82F6',
-            grams: Math.max(0, meal.carbs - sugarValue)
+            grams: meal.carbs // 원래 입력값 표시
           });
         }
       } else {
@@ -156,7 +156,7 @@ export const MealCard: React.FC<MealCardProps> = ({
             name: '지방',
             value: fatWithoutSaturatedAndTrans * 9, // 1g = 9kcal
             color: '#F59E0B',
-            grams: fatWithoutSaturatedAndTrans
+            grams: meal.fat // 원래 입력값 표시
           });
         }
       } else {
