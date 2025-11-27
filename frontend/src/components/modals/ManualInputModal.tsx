@@ -34,7 +34,7 @@ export const ManualInputModal: React.FC<ManualInputModalProps> = ({
   });
   const [amountUnit, setAmountUnit] = useState<string>('g'); // 기본값 g
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [, setSelectedFile] = useState<File | null>(null); // 파일 선택 상태 관리용
   const [isProcessingOCR, setIsProcessingOCR] = useState(false);
   const [ocrError, setOcrError] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');

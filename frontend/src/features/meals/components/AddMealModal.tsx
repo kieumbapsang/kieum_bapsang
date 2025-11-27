@@ -312,26 +312,8 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
     setShowResults(false);
   };
 
-  // 카메라 스트림 시작
-  const startCamera = async () => {
-    try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' }, // 후면 카메라 우선
-        audio: false
-      });
-      setStream(mediaStream);
-      setIsCameraOpen(true);
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-      }
-    } catch (error) {
-      console.error('카메라 접근 실패:', error);
-      alert('카메라 접근 권한이 필요합니다. 브라우저 설정에서 카메라 권한을 허용해주세요.');
-    }
-  };
-
   // 카메라 스트림 중지
-  const stopCamera = () => {
+  const stopCamera = React.useCallback(() => {
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
       setStream(null);
@@ -340,7 +322,7 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
-  };
+  }, [stream]);
 
   // 카메라로 사진 촬영
   const capturePhoto = () => {
@@ -415,7 +397,7 @@ export const AddMealModal: React.FC<AddMealModalProps> = ({
         transFat: initialMeal.transFat?.toString() || ''
       });
     }
-  }, [isOpen, initialMeal]);
+  }, [isOpen, initialMeal, stopCamera]);
 
   if (!isOpen) return null;
 
