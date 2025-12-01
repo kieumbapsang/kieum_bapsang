@@ -8,6 +8,7 @@ import { api } from '../api/client';
 import { Store } from '../components/ui/kakaoMap';
 import { getStoresByDistrict } from '../services/storeService';
 import { set } from 'date-fns';
+import { getKoreanDate, toKoreanDateString } from '../lib/utils';
 
 // BMI 계산 함수
 const calculateBMI = (weight: number, height: number): number => {
@@ -85,8 +86,8 @@ const fetchDashboardData = async () => {
       throw new Error('사용자 ID가 없습니다.');
     }
 
-    // 오늘 날짜
-    const today = new Date().toISOString().split('T')[0];
+    // 오늘 날짜 (한국 시간 기준)
+    const today = toKoreanDateString(getKoreanDate());
     
     // 오늘의 식사 요약 데이터 가져오기
     const { data: mealSummary, error: summaryError } = await (api.meals.getMealSummary as any)(today, parseInt(userId));
